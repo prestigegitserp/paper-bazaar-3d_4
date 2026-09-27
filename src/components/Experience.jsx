@@ -1,227 +1,379 @@
-import { useRef, useState } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import {
   Environment,
   Lightformer,
-  MeshReflectorMaterial,
   PerformanceMonitor,
+  PointerLockControls,
 } from '@react-three/drei'
 import {
-  Bloom,
   EffectComposer,
   N8AO,
   Noise,
+  SMAA,
   Vignette,
 } from '@react-three/postprocessing'
 import {
   ACESFilmicToneMapping,
+  CanvasTexture,
+  Color,
   MathUtils,
+  RepeatWrapping,
   SRGBColorSpace,
   Vector3,
 } from 'three'
 import Booth from './Booth.jsx'
 import { booths } from '../data/booths.js'
 
-const cameraStates = {
-  wide: {
-    position: new Vector3(0, 4.8, 12.8),
-    target: new Vector3(0, 1.45, -0.45),
-    fov: 42,
-  },
-  atlas: {
-    position: new Vector3(-6.9, 3.55, 7.7),
-    target: new Vector3(-4.45, 1.58, -0.2),
-    fov: 37,
-  },
-  packlab: {
-    position: new Vector3(6.95, 3.6, 7.75),
-    target: new Vector3(4.45, 1.55, -0.2),
-    fov: 37,
-  },
+const EYE_HEIGHT = 1.68
+const HALL_X = 7.55
+const HALL_Z_MIN = -17.1
+const HALL_Z_MAX = 17.1
+const AISLE_HALF = 2.42
+
+function seeded(seed) {
+  let value = seed >>> 0
+  return () => {
+    value = (value * 1664525 + 1013904223) >>> 0
+    return value / 4294967296
+  }
 }
 
-function CameraRig({ activeId }) {
-  const lookAt = useRef(new Vector3(0, 1.45, -0.45))
+function useConcreteTextures() {
+  return useMemo(() => {
+    const colorCanvas = document.createElement('canvas')
+    const roughCanvas = document.createElement('canvas')
+    colorCanvas.width = colorCanvas.height = 512
+    roughCanvas.width = roughCanvas.height = 512
 
-  useFrame((state, delta) => {
-    const config = cameraStates[activeId] ?? cameraStates.wide
-    const pointerX = state.pointer.x * (activeId ? 0.22 : 0.46)
-    const pointerY = state.pointer.y * (activeId ? 0.12 : 0.24)
+    const colorCtx = colorCanvas.getContext('2d')
+    const roughCtx = roughCanvas.getContext('2d')
+    const random = seeded(92831)
 
-    const destination = config.position.clone()
-    destination.x += pointerX
-    destination.y += pointerY
+    colorCtx.fillStyle = '#777774'
+    colorCtx.fillRect(0, 0, 512, 512)
+    roughCtx.fillStyle = '#d7d7d7'
+    roughCtx.fillRect(0, 0, 512, 512)
 
-    const alpha = 1 - Math.exp(-delta * 2.4)
-    state.camera.position.lerp(destination, alpha)
-    lookAt.current.lerp(config.target, alpha)
+    for (let i = 0; i < 9000; i += 1) {
+      const x = random() * 512
+      const y = random() * 512
+      const radius = 0.4 + random() * 2.4
+      const light = 92 + Math.floor(random() * 52)
+      colorCtx.fillStyle = `rgba(${light},${light},${Math.max(70, light - 4)},${0.025 + random() * 0.085})`
+      colorCtx.beginPath()
+      colorCtx.arc(x, y, radius, 0, Math.PI * 2)
+      colorCtx.fill()
 
-    state.camera.fov = MathUtils.damp(state.camera.fov, config.fov, 3.6, delta)
-    state.camera.lookAt(lookAt.current)
-    state.camera.updateProjectionMatrix()
+      const rough = 160 + Math.floor(random() * 80)
+      roughCtx.fillStyle = `rgba(${rough},${rough},${rough},${0.08 + random() * 0.24})`
+      roughCtx.fillRect(x, y, 1 + random() * 2.2, 1 + random() * 2.2)
+    }
+
+    colorCtx.strokeStyle = 'rgba(35,35,33,.11)'
+    colorCtx.lineWidth = 1
+    for (let i = 0; i < 14; i += 1) {
+      const x = random() * 512
+      const y = random() * 512
+      colorCtx.beginPath()
+      colorCtx.moveTo(x, y)
+      for (let p = 0; p < 8; p += 1) {
+        colorCtx.lineTo(x + p * 9 + random() * 8, y + (random() - 0.5) * 16)
+      }
+      colorCtx.stroke()
+    }
+
+    const map = new CanvasTexture(colorCanvas)
+    map.wrapS = map.wrapT = RepeatWrapping
+    map.repeat.set(8, 18)
+    map.colorSpace = SRGBColorSpace
+
+    const roughnessMap = new CanvasTexture(roughCanvas)
+    roughnessMap.wrapS = roughnessMap.wrapT = RepeatWrapping
+    roughnessMap.repeat.set(8, 18)
+
+    return { map, roughnessMap }
+  }, [])
+}
+
+function isBoothRow(z) {
+  return Math.abs(z - 6) < 3.05 || Math.abs(z + 6) < 3.05
+}
+
+function clampWalkPosition(position) {
+  position.z = MathUtils.clamp(position.z, HALL_Z_MIN, HALL_Z_MAX)
+
+  const inEntranceLobby = position.z > 10.2
+  const permittedX = isBoothRow(position.z) || inEntranceLobby ? HALL_X : AISLE_HALF
+  position.x = MathUtils.clamp(position.x, -permittedX, permittedX)
+
+  if (isBoothRow(position.z) && Math.abs(position.x) > 2.6) {
+    position.x = MathUtils.clamp(position.x, -7.05, 7.05)
+  }
+}
+
+function WalkController({ enabled }) {
+  const { camera } = useThree()
+  const keys = useRef(new Set())
+  const velocity = useRef(new Vector3())
+  const forward = useRef(new Vector3())
+  const right = useRef(new Vector3())
+  const elapsedWalk = useRef(0)
+
+  useEffect(() => {
+    const down = (event) => keys.current.add(event.code)
+    const up = (event) => keys.current.delete(event.code)
+    window.addEventListener('keydown', down)
+    window.addEventListener('keyup', up)
+    return () => {
+      window.removeEventListener('keydown', down)
+      window.removeEventListener('keyup', up)
+    }
+  }, [])
+
+  useFrame((_, delta) => {
+    if (!enabled) {
+      velocity.current.multiplyScalar(0)
+      camera.position.y = MathUtils.damp(camera.position.y, EYE_HEIGHT, 12, delta)
+      return
+    }
+
+    const movingForward = Number(keys.current.has('KeyW') || keys.current.has('ArrowUp')) - Number(keys.current.has('KeyS') || keys.current.has('ArrowDown'))
+    const movingSide = Number(keys.current.has('KeyD') || keys.current.has('ArrowRight')) - Number(keys.current.has('KeyA') || keys.current.has('ArrowLeft'))
+    const moving = movingForward !== 0 || movingSide !== 0
+    const speed = keys.current.has('ShiftLeft') || keys.current.has('ShiftRight') ? 4.25 : 2.55
+
+    camera.getWorldDirection(forward.current)
+    forward.current.y = 0
+    forward.current.normalize()
+    right.current.crossVectors(forward.current, camera.up).normalize().multiplyScalar(-1)
+
+    const desired = new Vector3()
+      .addScaledVector(forward.current, movingForward)
+      .addScaledVector(right.current, movingSide)
+
+    if (desired.lengthSq() > 0) desired.normalize().multiplyScalar(speed)
+
+    velocity.current.lerp(desired, 1 - Math.exp(-delta * 12))
+    camera.position.addScaledVector(velocity.current, delta)
+    clampWalkPosition(camera.position)
+
+    if (moving) elapsedWalk.current += delta * speed
+    const bob = moving ? Math.sin(elapsedWalk.current * 6.4) * 0.014 : 0
+    camera.position.y = MathUtils.damp(camera.position.y, EYE_HEIGHT + bob, 16, delta)
   })
 
   return null
 }
 
-function StudioEnvironment() {
+function ScanResidue({ quality }) {
+  const positions = useMemo(() => {
+    const count = quality === 'high' ? 1800 : 700
+    const data = new Float32Array(count * 3)
+    const random = seeded(18377)
+
+    for (let i = 0; i < count; i += 1) {
+      const surface = Math.floor(random() * 4)
+      let x = (random() - 0.5) * 15.6
+      let y = 0.03 + random() * 5.05
+      let z = -17 + random() * 34
+
+      if (surface === 0) x = -7.82 + (random() - 0.5) * 0.045
+      if (surface === 1) x = 7.82 + (random() - 0.5) * 0.045
+      if (surface === 2) y = 0.015 + random() * 0.028
+      if (surface === 3) y = 5.18 + (random() - 0.5) * 0.04
+
+      data[i * 3] = x
+      data[i * 3 + 1] = y
+      data[i * 3 + 2] = z
+    }
+    return data
+  }, [quality])
+
   return (
-    <Environment resolution={128}>
-      <Lightformer
-        form="rect"
-        intensity={4.5}
-        color="#ffe8ca"
-        position={[-6, 5, 4]}
-        rotation={[0, Math.PI / 3, 0]}
-        scale={[4, 7, 1]}
-      />
-      <Lightformer
-        form="rect"
-        intensity={5.2}
-        color="#b9efff"
-        position={[7, 4, 2]}
-        rotation={[0, -Math.PI / 2.8, 0]}
-        scale={[3, 6, 1]}
-      />
-      <Lightformer
-        form="rect"
-        intensity={3.2}
-        color="#ffffff"
-        position={[0, 8, -1]}
-        rotation={[Math.PI / 2, 0, 0]}
-        scale={[8, 5, 1]}
-      />
-      <Lightformer
-        form="ring"
-        intensity={2}
-        color="#ffb86b"
-        position={[-1, 2.4, -7]}
-        rotation={[0, 0, 0]}
-        scale={[3.5, 3.5, 1]}
-      />
-      <Lightformer
-        form="ring"
-        intensity={1.6}
-        color="#6de6ff"
-        position={[4, 3.5, -6]}
-        scale={[2.8, 2.8, 1]}
-      />
+    <points>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+      </bufferGeometry>
+      <pointsMaterial size={0.018} color="#c8cbc8" transparent opacity={0.09} depthWrite={false} />
+    </points>
+  )
+}
+
+function CeilingGrid() {
+  const zRows = [-14, -10, -6, -2, 2, 6, 10, 14]
+  return (
+    <group>
+      <mesh position={[0, 5.24, 0]} receiveShadow>
+        <boxGeometry args={[16.2, 0.18, 35.6]} />
+        <meshStandardMaterial color="#4e504d" roughness={0.92} />
+      </mesh>
+
+      {zRows.map((z, index) => (
+        <group key={z}>
+          <mesh position={[0, 5.1, z]}>
+            <boxGeometry args={[4.9, 0.035, 0.48]} />
+            <meshStandardMaterial color="#ddd8cd" emissive="#fff8e6" emissiveIntensity={1.45} toneMapped={false} />
+          </mesh>
+          <pointLight
+            position={[0, 4.72, z]}
+            color={index % 3 === 0 ? '#fff0d5' : '#fff8e8'}
+            intensity={19}
+            distance={8.5}
+            decay={2}
+          />
+        </group>
+      ))}
+
+      {[-5.8, 5.8].map((x) => (
+        <mesh key={x} position={[x, 4.82, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.16, 0.16, 34, 18]} />
+          <meshStandardMaterial color="#777a76" roughness={0.55} metalness={0.45} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+function HallArchitecture({ textures }) {
+  const columns = [-13, -9, -5, -1, 3, 7, 11, 15]
+  return (
+    <group>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[16.4, 35.8]} />
+        <meshStandardMaterial
+          map={textures.map}
+          roughnessMap={textures.roughnessMap}
+          bumpMap={textures.roughnessMap}
+          bumpScale={0.018}
+          roughness={0.92}
+          metalness={0.03}
+          color="#aaa9a2"
+        />
+      </mesh>
+
+      {[-8.05, 8.05].map((x) => (
+        <mesh key={x} position={[x, 2.55, 0]} receiveShadow>
+          <boxGeometry args={[0.2, 5.1, 35.6]} />
+          <meshStandardMaterial color="#8e8f8a" roughness={0.95} />
+        </mesh>
+      ))}
+
+      <mesh position={[0, 2.55, -17.75]} receiveShadow>
+        <boxGeometry args={[16.2, 5.1, 0.2]} />
+        <meshStandardMaterial color="#898b87" roughness={0.95} />
+      </mesh>
+
+      <mesh position={[0, 2.55, 17.75]} receiveShadow>
+        <boxGeometry args={[16.2, 5.1, 0.2]} />
+        <meshStandardMaterial color="#8b8c88" roughness={0.96} />
+      </mesh>
+
+      {columns.map((z, index) => (
+        <group key={z}>
+          <mesh position={[-7.62, 2.52, z]} castShadow>
+            <boxGeometry args={[0.42, 5.02, 0.42]} />
+            <meshStandardMaterial color="#666864" roughness={0.7} metalness={0.14} />
+          </mesh>
+          <mesh position={[7.62, 2.52, z + (index % 2 ? 0.06 : -0.04)]} castShadow>
+            <boxGeometry args={[0.42, 5.02, 0.42]} />
+            <meshStandardMaterial color="#666864" roughness={0.7} metalness={0.14} />
+          </mesh>
+        </group>
+      ))}
+
+      <mesh position={[0, 0.016, 0]}>
+        <boxGeometry args={[0.055, 0.018, 34.5]} />
+        <meshStandardMaterial color="#a49b83" roughness={0.76} />
+      </mesh>
+
+      <CeilingGrid />
+
+      <group position={[0, 2.1, -17.58]}>
+        <mesh>
+          <boxGeometry args={[2.25, 4.15, 0.08]} />
+          <meshStandardMaterial color="#505450" roughness={0.62} metalness={0.32} />
+        </mesh>
+        <mesh position={[0, 2.15, 0.055]}>
+          <boxGeometry args={[1.2, 0.22, 0.035]} />
+          <meshStandardMaterial color="#3c6b50" emissive="#4e9d6e" emissiveIntensity={1.15} toneMapped={false} />
+        </mesh>
+      </group>
+
+      <group position={[0, 0.03, 12.4]}>
+        {[-1.35, -0.45, 0.45, 1.35].map((x) => (
+          <mesh key={x} position={[x, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[0.035, 4.1]} />
+            <meshBasicMaterial color="#e8e0c5" transparent opacity={0.33} />
+          </mesh>
+        ))}
+      </group>
+    </group>
+  )
+}
+
+function NeutralEnvironment() {
+  return (
+    <Environment resolution={96}>
+      <Lightformer form="rect" intensity={2.2} color="#f1eadc" position={[0, 4, 9]} rotation={[0, Math.PI, 0]} scale={[7, 5, 1]} />
+      <Lightformer form="rect" intensity={1.3} color="#cbd5d0" position={[-8, 2, 0]} rotation={[0, Math.PI / 2, 0]} scale={[5, 12, 1]} />
+      <Lightformer form="rect" intensity={1.3} color="#d3d6cf" position={[8, 2, 0]} rotation={[0, -Math.PI / 2, 0]} scale={[5, 12, 1]} />
+      <Lightformer form="rect" intensity={1.8} color="#e9e4d8" position={[0, 5, -10]} rotation={[Math.PI / 2, 0, 0]} scale={[7, 7, 1]} />
     </Environment>
   )
 }
 
-function GalleryArchitecture() {
+const boothPlacements = [
+  { position: [-5.12, 0.02, 6], rotation: [0, Math.PI / 2, 0] },
+  { position: [5.12, 0.02, 6], rotation: [0, -Math.PI / 2, 0] },
+  { position: [-5.12, 0.02, -6], rotation: [0, Math.PI / 2, 0] },
+  { position: [5.12, 0.02, -6], rotation: [0, -Math.PI / 2, 0] },
+]
+
+function Scene({ activeId, quality, setQuality, onSelect, onSelectProduct, walkLocked, setWalkLocked }) {
+  const textures = useConcreteTextures()
+
   return (
     <>
-      <mesh position={[0, 4.3, -3.0]} receiveShadow>
-        <boxGeometry args={[18.5, 0.12, 0.16]} />
-        <meshStandardMaterial color="#1d2229" roughness={0.35} metalness={0.72} />
-      </mesh>
+      <color attach="background" args={['#777973']} />
+      <fog attach="fog" args={['#777973', 20, 43]} />
 
-      {[-8.7, 0, 8.7].map((x) => (
-        <mesh key={x} position={[x, 2.2, -3]} castShadow>
-          <boxGeometry args={[0.12, 4.3, 0.16]} />
-          <meshStandardMaterial color="#1d2229" roughness={0.35} metalness={0.72} />
-        </mesh>
-      ))}
-
-      <mesh position={[0, 1.1, -5.5]}>
-        <planeGeometry args={[28, 9]} />
-        <meshStandardMaterial color="#0b0e12" roughness={0.9} />
-      </mesh>
-
-      <mesh position={[0, 3.95, -2.88]}>
-        <boxGeometry args={[8.8, 0.035, 0.04]} />
-        <meshStandardMaterial
-          color="#eac691"
-          emissive="#eac691"
-          emissiveIntensity={2.8}
-          toneMapped={false}
-        />
-      </mesh>
-
-      <mesh position={[0, 0.015, 3.35]}>
-        <boxGeometry args={[5.0, 0.025, 0.055]} />
-        <meshStandardMaterial
-          color="#d9bd86"
-          emissive="#d9bd86"
-          emissiveIntensity={2}
-          toneMapped={false}
-        />
-      </mesh>
-    </>
-  )
-}
-
-function ReflectiveFloor({ quality, onReset }) {
-  return (
-    <mesh
-      rotation={[-Math.PI / 2, 0, 0]}
-      position={[0, -0.07, 0]}
-      receiveShadow
-      onClick={() => onReset(null)}
-    >
-      <planeGeometry args={[34, 26]} />
-      <MeshReflectorMaterial
-        resolution={quality === 'high' ? 1024 : 512}
-        blur={quality === 'high' ? [420, 95] : [160, 45]}
-        mixBlur={1}
-        mixStrength={quality === 'high' ? 36 : 16}
-        roughness={0.58}
-        depthScale={0.7}
-        minDepthThreshold={0.25}
-        maxDepthThreshold={1.35}
-        color="#080a0d"
-        metalness={0.62}
-        mirror={0.18}
-      />
-    </mesh>
-  )
-}
-
-function Scene({ activeId, quality, setQuality, onSelect, onSelectProduct }) {
-  return (
-    <>
-      <color attach="background" args={['#07090c']} />
-      <fog attach="fog" args={['#07090c', 14, 31]} />
-
-      <ambientLight intensity={0.18} />
+      <hemisphereLight intensity={0.75} color="#f7f0df" groundColor="#4c504c" />
       <directionalLight
         castShadow
-        position={[1.5, 8.5, 7]}
-        intensity={2.15}
-        color="#fff0dc"
-        shadow-mapSize-width={quality === 'high' ? 1536 : 1024}
-        shadow-mapSize-height={quality === 'high' ? 1536 : 1024}
-        shadow-camera-left={-13}
-        shadow-camera-right={13}
-        shadow-camera-top={9}
-        shadow-camera-bottom={-6}
+        position={[-5, 10, 9]}
+        intensity={1.25}
+        color="#fff5df"
+        shadow-mapSize-width={quality === 'high' ? 2048 : 1024}
+        shadow-mapSize-height={quality === 'high' ? 2048 : 1024}
+        shadow-camera-left={-11}
+        shadow-camera-right={11}
+        shadow-camera-top={20}
+        shadow-camera-bottom={-20}
         shadow-bias={-0.00012}
       />
-      <pointLight position={[-5.1, 3.3, 1.5]} color={booths[0].accent} intensity={22} distance={7} decay={2.1} />
-      <pointLight position={[5.2, 3.25, 1.5]} color={booths[1].accent} intensity={24} distance={7} decay={2.1} />
 
-      <ReflectiveFloor quality={quality} onReset={onSelect} />
-      <GalleryArchitecture />
+      <HallArchitecture textures={textures} />
+      {booths.map((booth, index) => (
+        <Booth
+          key={booth.id}
+          booth={booth}
+          position={boothPlacements[index].position}
+          rotation={boothPlacements[index].rotation}
+          active={activeId === booth.id}
+          onSelect={onSelect}
+          onSelectProduct={onSelectProduct}
+        />
+      ))}
 
-      <Booth
-        booth={booths[0]}
-        position={[-4.55, 0, -0.2]}
-        active={activeId === booths[0].id}
-        onSelect={onSelect}
-        onSelectProduct={onSelectProduct}
+      <ScanResidue quality={quality} />
+      <NeutralEnvironment />
+      <WalkController enabled={walkLocked} />
+      <PointerLockControls
+        selector=".walk-trigger"
+        onLock={() => setWalkLocked(true)}
+        onUnlock={() => setWalkLocked(false)}
       />
-      <Booth
-        booth={booths[1]}
-        position={[4.55, 0, -0.2]}
-        active={activeId === booths[1].id}
-        onSelect={onSelect}
-        onSelectProduct={onSelectProduct}
-      />
-
-      <StudioEnvironment />
-      <CameraRig activeId={activeId} />
 
       <PerformanceMonitor
         flipflops={2}
@@ -230,39 +382,42 @@ function Scene({ activeId, quality, setQuality, onSelect, onSelectProduct }) {
       />
 
       <EffectComposer multisampling={0}>
-        {quality === 'high' && (
-          <N8AO quality="medium" distanceFalloff={1} aoRadius={0.48} intensity={1.75} />
-        )}
-        <Bloom
-          mipmapBlur
-          luminanceThreshold={0.72}
-          luminanceSmoothing={0.52}
-          intensity={quality === 'high' ? 0.82 : 0.55}
-        />
-        {quality === 'high' && <Noise opacity={0.025} />}
-        <Vignette eskil={false} offset={0.13} darkness={0.68} />
+        {quality === 'high' && <N8AO quality="medium" distanceFalloff={1} aoRadius={0.52} intensity={2.15} />}
+        <SMAA />
+        {quality === 'high' && <Noise opacity={0.016} />}
+        <Vignette eskil={false} offset={0.07} darkness={0.34} />
       </EffectComposer>
     </>
   )
 }
 
-export default function Experience({ activeId, onSelect, onSelectProduct }) {
+export default function Experience({ activeId, onSelect, onSelectProduct, onWalkChange }) {
   const [quality, setQuality] = useState('high')
+  const [walkLocked, setWalkLockedState] = useState(false)
+
+  const setWalkLocked = (value) => {
+    setWalkLockedState(value)
+    onWalkChange?.(value)
+  }
 
   return (
     <Canvas
       className="experience-canvas"
-      dpr={quality === 'high' ? [1, 1.65] : [1, 1.15]}
+      dpr={quality === 'high' ? [1, 1.45] : [1, 1.05]}
       shadows
-      camera={{ position: [0, 4.8, 12.8], fov: 42, near: 0.1, far: 80 }}
+      camera={{ position: [0, EYE_HEIGHT, 15.3], fov: 66, near: 0.04, far: 70 }}
       gl={{
         antialias: false,
         alpha: false,
         powerPreference: 'high-performance',
         toneMapping: ACESFilmicToneMapping,
+        toneMappingExposure: 0.9,
         outputColorSpace: SRGBColorSpace,
       }}
-      onPointerMissed={() => onSelect(null)}
+      onCreated={({ camera }) => camera.lookAt(0, EYE_HEIGHT, -7)}
+      onPointerMissed={() => {
+        if (!walkLocked) onSelect(null)
+      }}
     >
       <Scene
         activeId={activeId}
@@ -270,6 +425,8 @@ export default function Experience({ activeId, onSelect, onSelectProduct }) {
         setQuality={setQuality}
         onSelect={onSelect}
         onSelectProduct={onSelectProduct}
+        walkLocked={walkLocked}
+        setWalkLocked={setWalkLocked}
       />
     </Canvas>
   )
