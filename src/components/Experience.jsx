@@ -20,6 +20,7 @@ import {
   MathUtils,
   RepeatWrapping,
   SRGBColorSpace,
+  TextureLoader,
   Vector3,
 } from 'three'
 import Booth from './Booth.jsx'
@@ -40,7 +41,7 @@ function seeded(seed) {
 }
 
 function useConcreteTextures() {
-  return useMemo(() => {
+  const procedural = useMemo(() => {
     const colorCanvas = document.createElement('canvas')
     const roughCanvas = document.createElement('canvas')
     colorCanvas.width = colorCanvas.height = 512
@@ -92,8 +93,46 @@ function useConcreteTextures() {
     roughnessMap.wrapS = roughnessMap.wrapT = RepeatWrapping
     roughnessMap.repeat.set(8, 18)
 
-    return { map, roughnessMap }
+    return { map, roughnessMap, normalMap: null, source: 'procedural' }
   }, [])
+
+  const [textures, setTextures] = useState(procedural)
+
+  useEffect(() => {
+    let cancelled = false
+    const loader = new TextureLoader()
+    loader.setCrossOrigin('anonymous')
+
+    const base = 'https://cdn.polyhaven.com/asset_img/map_previews/hangar_concrete_floor/'
+    const query = '?height=768&quality=92&width=768'
+    const urls = [
+      `${base}hangar_concrete_floor_diff_1k.jpg${query}`,
+      `${base}hangar_concrete_floor_nor_gl_1k.jpg${query}`,
+      `${base}hangar_concrete_floor_rough_1k.jpg${query}`,
+    ]
+
+    Promise.all(urls.map((url) => loader.loadAsync(url)))
+      .then(([map, normalMap, roughnessMap]) => {
+        if (cancelled) return
+        for (const texture of [map, normalMap, roughnessMap]) {
+          texture.wrapS = texture.wrapT = RepeatWrapping
+          texture.repeat.set(8, 18)
+          texture.anisotropy = 4
+          texture.needsUpdate = true
+        }
+        map.colorSpace = SRGBColorSpace
+        setTextures({ map, normalMap, roughnessMap, source: 'polyhaven-cc0' })
+      })
+      .catch(() => {
+        if (!cancelled) setTextures(procedural)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [procedural])
+
+  return textures
 }
 
 function isBoothRow(z) {
@@ -352,7 +391,9 @@ function HallArchitecture({ textures }) {
         <meshStandardMaterial
           map={textures.map}
           roughnessMap={textures.roughnessMap}
-          bumpMap={textures.roughnessMap}
+          normalMap={textures.normalMap}
+          normalScale={[0.46, 0.46]}
+          bumpMap={!textures.normalMap ? textures.roughnessMap : null}
           bumpScale={0.018}
           roughness={0.92}
           metalness={0.03}
