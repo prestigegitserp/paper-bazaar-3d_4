@@ -50,5 +50,8 @@ jobs:
             visual-home.png
             visual-atlas.png
             visual-packlab.png
+            visual-chroma.png
+            visual-circula.png
+            visual-walk.png
             visual-mobile.png
           if-no-files-found: error
