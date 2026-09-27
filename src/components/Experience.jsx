@@ -135,6 +135,96 @@ function useConcreteTextures() {
   return textures
 }
 
+
+function useWallTextures() {
+  const procedural = useMemo(() => {
+    const colorCanvas = document.createElement('canvas')
+    const roughCanvas = document.createElement('canvas')
+    colorCanvas.width = colorCanvas.height = 512
+    roughCanvas.width = roughCanvas.height = 512
+
+    const colorCtx = colorCanvas.getContext('2d')
+    const roughCtx = roughCanvas.getContext('2d')
+    const random = seeded(44517)
+
+    colorCtx.fillStyle = '#d7d4cb'
+    colorCtx.fillRect(0, 0, 512, 512)
+    roughCtx.fillStyle = '#e1e1df'
+    roughCtx.fillRect(0, 0, 512, 512)
+
+    for (let i = 0; i < 5400; i += 1) {
+      const x = random() * 512
+      const y = random() * 512
+      const shade = 178 + Math.floor(random() * 55)
+      const size = 0.5 + random() * 3.2
+      colorCtx.fillStyle = `rgba(${shade},${Math.max(170, shade - 3)},${Math.max(165, shade - 7)},${0.018 + random() * 0.065})`
+      colorCtx.fillRect(x, y, size, size * (0.5 + random()))
+    }
+
+    colorCtx.strokeStyle = 'rgba(78,74,68,.16)'
+    colorCtx.lineWidth = 0.8
+    for (let i = 0; i < 9; i += 1) {
+      const x = random() * 512
+      const y = random() * 512
+      colorCtx.beginPath()
+      colorCtx.moveTo(x, y)
+      for (let p = 0; p < 6; p += 1) {
+        colorCtx.lineTo(x + p * 11 + random() * 7, y + (random() - 0.5) * 11)
+      }
+      colorCtx.stroke()
+    }
+
+    const map = new CanvasTexture(colorCanvas)
+    map.wrapS = map.wrapT = RepeatWrapping
+    map.repeat.set(12, 3)
+    map.colorSpace = SRGBColorSpace
+
+    const roughnessMap = new CanvasTexture(roughCanvas)
+    roughnessMap.wrapS = roughnessMap.wrapT = RepeatWrapping
+    roughnessMap.repeat.set(12, 3)
+
+    return { map, normalMap: null, roughnessMap, source: 'procedural-wall' }
+  }, [])
+
+  const [textures, setTextures] = useState(procedural)
+
+  useEffect(() => {
+    let cancelled = false
+    const loader = new TextureLoader()
+    loader.setCrossOrigin('anonymous')
+
+    const base = 'https://cdn.polyhaven.com/asset_img/map_previews/concrete_wall_001/'
+    const query = '?height=768&quality=92&width=768'
+    const urls = [
+      `${base}concrete_wall_001_diff_1k.jpg${query}`,
+      `${base}concrete_wall_001_nor_gl_1k.jpg${query}`,
+      `${base}concrete_wall_001_rough_1k.jpg${query}`,
+    ]
+
+    Promise.all(urls.map((url) => loader.loadAsync(url)))
+      .then(([map, normalMap, roughnessMap]) => {
+        if (cancelled) return
+        for (const texture of [map, normalMap, roughnessMap]) {
+          texture.wrapS = texture.wrapT = RepeatWrapping
+          texture.repeat.set(12, 3)
+          texture.anisotropy = 4
+          texture.needsUpdate = true
+        }
+        map.colorSpace = SRGBColorSpace
+        setTextures({ map, normalMap, roughnessMap, source: 'polyhaven-wall-cc0' })
+      })
+      .catch(() => {
+        if (!cancelled) setTextures(procedural)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [procedural])
+
+  return textures
+}
+
 function isBoothRow(z) {
   return Math.abs(z - 6) < 3.05 || Math.abs(z + 6) < 3.05
 }
@@ -382,18 +472,18 @@ function UtilityDetails() {
   )
 }
 
-function HallArchitecture({ textures }) {
+function HallArchitecture({ floorTextures, wallTextures }) {
   const columns = [-13, -9, -5, -1, 3, 7, 11, 15]
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[16.4, 35.8]} />
         <meshStandardMaterial
-          map={textures.map}
-          roughnessMap={textures.roughnessMap}
-          normalMap={textures.normalMap}
+          map={floorTextures.map}
+          roughnessMap={floorTextures.roughnessMap}
+          normalMap={floorTextures.normalMap}
           normalScale={[0.46, 0.46]}
-          bumpMap={!textures.normalMap ? textures.roughnessMap : null}
+          bumpMap={!floorTextures.normalMap ? floorTextures.roughnessMap : null}
           bumpScale={0.018}
           roughness={0.92}
           metalness={0.03}
@@ -404,18 +494,39 @@ function HallArchitecture({ textures }) {
       {[-8.05, 8.05].map((x) => (
         <mesh key={x} position={[x, 2.55, 0]} receiveShadow>
           <boxGeometry args={[0.2, 5.1, 35.6]} />
-          <meshStandardMaterial color="#8e8f8a" roughness={0.95} />
+          <meshStandardMaterial
+            map={wallTextures.map}
+            normalMap={wallTextures.normalMap}
+            normalScale={[0.32, 0.32]}
+            roughnessMap={wallTextures.roughnessMap}
+            color="#e1ded5"
+            roughness={0.92}
+          />
         </mesh>
       ))}
 
       <mesh position={[0, 2.55, -17.75]} receiveShadow>
         <boxGeometry args={[16.2, 5.1, 0.2]} />
-        <meshStandardMaterial color="#898b87" roughness={0.95} />
+        <meshStandardMaterial
+          map={wallTextures.map}
+          normalMap={wallTextures.normalMap}
+          normalScale={[0.32, 0.32]}
+          roughnessMap={wallTextures.roughnessMap}
+          color="#ddd9d0"
+          roughness={0.93}
+        />
       </mesh>
 
       <mesh position={[0, 2.55, 17.75]} receiveShadow>
         <boxGeometry args={[16.2, 5.1, 0.2]} />
-        <meshStandardMaterial color="#8b8c88" roughness={0.96} />
+        <meshStandardMaterial
+          map={wallTextures.map}
+          normalMap={wallTextures.normalMap}
+          normalScale={[0.32, 0.32]}
+          roughnessMap={wallTextures.roughnessMap}
+          color="#dedbd2"
+          roughness={0.93}
+        />
       </mesh>
 
       {columns.map((z, index) => (
@@ -481,18 +592,20 @@ const boothPlacements = [
 ]
 
 function Scene({ activeId, quality, setQuality, onSelect, onSelectProduct, walkLocked, setWalkLocked }) {
-  const textures = useConcreteTextures()
+  const floorTextures = useConcreteTextures()
+  const wallTextures = useWallTextures()
 
   return (
     <>
       <color attach="background" args={['#777973']} />
       <fog attach="fog" args={['#777973', 20, 43]} />
 
-      <hemisphereLight intensity={0.75} color="#f7f0df" groundColor="#4c504c" />
+      <ambientLight intensity={0.16} color="#fff3dc" />
+      <hemisphereLight intensity={0.98} color="#fff5e6" groundColor="#676b65" />
       <directionalLight
         castShadow
         position={[-5, 10, 9]}
-        intensity={1.25}
+        intensity={1.05}
         color="#fff5df"
         shadow-mapSize-width={quality === 'high' ? 2048 : 1024}
         shadow-mapSize-height={quality === 'high' ? 2048 : 1024}
@@ -503,7 +616,7 @@ function Scene({ activeId, quality, setQuality, onSelect, onSelectProduct, walkL
         shadow-bias={-0.00012}
       />
 
-      <HallArchitecture textures={textures} />
+      <HallArchitecture floorTextures={floorTextures} wallTextures={wallTextures} />
       {booths.map((booth, index) => (
         <Booth
           key={booth.id}
@@ -513,6 +626,7 @@ function Scene({ activeId, quality, setQuality, onSelect, onSelectProduct, walkL
           active={activeId === booth.id}
           onSelect={onSelect}
           onSelectProduct={onSelectProduct}
+          wallTextures={wallTextures}
         />
       ))}
 
@@ -533,7 +647,7 @@ function Scene({ activeId, quality, setQuality, onSelect, onSelectProduct, walkL
       />
 
       <EffectComposer multisampling={0}>
-        {quality === 'high' && <N8AO quality="medium" distanceFalloff={1} aoRadius={0.52} intensity={2.15} />}
+        {quality === 'high' && <N8AO quality="medium" distanceFalloff={1} aoRadius={0.4} intensity={1.38} />}
         <SMAA />
         {quality === 'high' && <Noise opacity={0.016} />}
         <Vignette eskil={false} offset={0.07} darkness={0.34} />
@@ -562,7 +676,7 @@ export default function Experience({ activeId, onSelect, onSelectProduct, onWalk
         alpha: false,
         powerPreference: 'high-performance',
         toneMapping: ACESFilmicToneMapping,
-        toneMappingExposure: 0.9,
+        toneMappingExposure: 0.98,
         outputColorSpace: SRGBColorSpace,
       }}
       onCreated={({ camera }) => camera.lookAt(0, EYE_HEIGHT, -7)}
