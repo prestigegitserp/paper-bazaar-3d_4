@@ -12,17 +12,19 @@ const browser = await chromium.launch({
 })
 
 const page = await browser.newPage({
-  viewport: { width: 1440, height: 900 },
+  viewport: { width: 1280, height: 720 },
   deviceScaleFactor: 1,
 })
+
+page.setDefaultTimeout(120_000)
 
 page.on('console', (message) => {
   if (message.type() === 'error') console.error('[browser]', message.text())
 })
 page.on('pageerror', (error) => console.error('[pageerror]', error.message))
 
-await page.goto(baseUrl, { waitUntil: 'networkidle' })
-await page.waitForTimeout(4200)
+await page.goto(baseUrl, { waitUntil: 'networkidle', timeout: 120_000 })
+await page.waitForTimeout(3500)
 
 const webgl = await page.evaluate(() => {
   const canvas = document.querySelector('canvas')
@@ -36,19 +38,27 @@ const webgl = await page.evaluate(() => {
 })
 console.log('visual-runtime', JSON.stringify(webgl))
 
-await page.screenshot({ path: 'visual-home.png', fullPage: true })
+const shot = (path) =>
+  page.screenshot({
+    path,
+    fullPage: false,
+    animations: 'disabled',
+    timeout: 120_000,
+  })
+
+await shot('visual-home.png')
 
 await page.getByRole('button', { name: /Atlas Paper House/i }).last().click()
-await page.waitForTimeout(2200)
-await page.screenshot({ path: 'visual-atlas.png', fullPage: true })
+await page.waitForTimeout(1800)
+await shot('visual-atlas.png')
 
 await page.getByRole('button', { name: /PackLab Supply/i }).last().click()
-await page.waitForTimeout(2200)
-await page.screenshot({ path: 'visual-packlab.png', fullPage: true })
+await page.waitForTimeout(1800)
+await shot('visual-packlab.png')
 
 await page.setViewportSize({ width: 390, height: 844 })
-await page.goto(baseUrl, { waitUntil: 'networkidle' })
-await page.waitForTimeout(3200)
-await page.screenshot({ path: 'visual-mobile.png', fullPage: true })
+await page.goto(baseUrl, { waitUntil: 'networkidle', timeout: 120_000 })
+await page.waitForTimeout(2500)
+await shot('visual-mobile.png')
 
 await browser.close()
