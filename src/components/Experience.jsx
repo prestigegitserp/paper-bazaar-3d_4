@@ -100,10 +100,16 @@ function isBoothRow(z) {
   return Math.abs(z - 6) < 3.05 || Math.abs(z + 6) < 3.05
 }
 
-function clampWalkPosition(position) {
+function clampWalkPosition(position, previous) {
   position.z = MathUtils.clamp(position.z, HALL_Z_MIN, HALL_Z_MAX)
 
   const inEntranceLobby = position.z > 10.2
+  const outsideAisle = Math.abs(position.x) > AISLE_HALF
+
+  if (outsideAisle && !isBoothRow(position.z) && !inEntranceLobby) {
+    position.z = previous.z
+  }
+
   const permittedX = isBoothRow(position.z) || inEntranceLobby ? HALL_X : AISLE_HALF
   position.x = MathUtils.clamp(position.x, -permittedX, permittedX)
 
@@ -146,7 +152,7 @@ function WalkController({ enabled }) {
     camera.getWorldDirection(forward.current)
     forward.current.y = 0
     forward.current.normalize()
-    right.current.crossVectors(forward.current, camera.up).normalize().multiplyScalar(-1)
+    right.current.crossVectors(forward.current, camera.up).normalize()
 
     const desired = new Vector3()
       .addScaledVector(forward.current, movingForward)
@@ -155,8 +161,9 @@ function WalkController({ enabled }) {
     if (desired.lengthSq() > 0) desired.normalize().multiplyScalar(speed)
 
     velocity.current.lerp(desired, 1 - Math.exp(-delta * 12))
+    const previous = camera.position.clone()
     camera.position.addScaledVector(velocity.current, delta)
-    clampWalkPosition(camera.position)
+    clampWalkPosition(camera.position, previous)
 
     if (moving) elapsedWalk.current += delta * speed
     const bob = moving ? Math.sin(elapsedWalk.current * 6.4) * 0.014 : 0
