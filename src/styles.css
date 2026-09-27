@@ -734,3 +734,224 @@ button:focus-visible {
     bottom: 16vh;
   }
 }
+
+
+/* v3 — walkable digital-twin layer */
+.masthead {
+  background: linear-gradient(180deg, rgba(24, 26, 24, 0.72), rgba(24, 26, 24, 0.08));
+  border-bottom-color: rgba(255,255,255,.1);
+}
+
+.opening-copy {
+  top: 18vh;
+  width: min(560px, 42vw);
+  text-shadow: 0 10px 45px rgba(0,0,0,.3);
+}
+
+.opening-copy h1 {
+  font-size: clamp(42px, 5vw, 76px);
+  line-height: 1.02;
+}
+
+.opening-copy h1 span {
+  color: #d8c89f;
+}
+
+.walk-trigger--floating {
+  position: absolute;
+  right: 30px;
+  top: 96px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid rgba(255,255,255,.28);
+  border-radius: 999px;
+  padding: 9px 12px 9px 15px;
+  background: rgba(25,27,25,.66);
+  color: #f5f1e8;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 40px rgba(0,0,0,.18);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.walk-trigger--floating span {
+  font-size: 8px;
+  letter-spacing: .16em;
+}
+
+.walk-trigger--floating b {
+  padding: 5px 7px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.12);
+  font-size: 7px;
+  letter-spacing: .12em;
+}
+
+.pavilion-rail {
+  max-width: calc(100vw - 54px);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.pavilion-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.pavilion-rail button {
+  min-width: 150px;
+}
+
+.pavilion-rail__overview {
+  min-width: 88px !important;
+}
+
+.crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.crosshair::before,
+.crosshair::after,
+.crosshair i::before,
+.crosshair i::after {
+  content: "";
+  position: absolute;
+  display: block;
+  background: rgba(255,255,255,.82);
+  box-shadow: 0 0 5px rgba(0,0,0,.35);
+}
+
+.crosshair::before,
+.crosshair::after {
+  width: 5px;
+  height: 1px;
+  top: 8px;
+}
+
+.crosshair::before { left: 0; }
+.crosshair::after { right: 0; }
+
+.crosshair i::before,
+.crosshair i::after {
+  width: 1px;
+  height: 5px;
+  left: 8px;
+}
+
+.crosshair i::before { top: 0; }
+.crosshair i::after { bottom: 0; }
+
+.walk-hint {
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 2px 11px;
+  align-items: baseline;
+  padding: 11px 13px;
+  border: 1px solid rgba(255,255,255,.13);
+  background: rgba(20,22,20,.5);
+  color: rgba(255,255,255,.62);
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+}
+
+.walk-hint strong {
+  color: #fff;
+  font-size: 10px;
+  letter-spacing: .18em;
+}
+
+.walk-hint span {
+  font-size: 7px;
+  letter-spacing: .18em;
+}
+
+.walk-hint em {
+  grid-column: 1 / -1;
+  font-style: normal;
+  font-size: 6px;
+  letter-spacing: .13em;
+  opacity: .65;
+}
+
+.walk-booth-label {
+  --accent: #d4c39c;
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  display: grid;
+  gap: 4px;
+  padding: 10px 13px 10px 16px;
+  border-left: 2px solid var(--accent);
+  background: rgba(20,22,20,.48);
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+}
+
+.walk-booth-label span {
+  color: var(--accent);
+  font-size: 7px;
+  letter-spacing: .15em;
+}
+
+.walk-booth-label strong {
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+}
+
+.hud.is-walking .masthead {
+  opacity: .38;
+  height: 54px;
+  background: linear-gradient(180deg, rgba(20,22,20,.38), transparent);
+  border-bottom-color: transparent;
+}
+
+.hud.is-walking .masthead__meta,
+.hud.is-walking .status {
+  display: none;
+}
+
+.hud.is-walking .wordmark {
+  transform: scale(.86);
+  transform-origin: left center;
+}
+
+@media (max-width: 900px) {
+  .pavilion-rail button {
+    min-width: 134px;
+  }
+
+  .opening-copy {
+    width: min(600px, 64vw);
+  }
+}
+
+@media (max-width: 720px) {
+  .walk-trigger--floating {
+    right: 12px;
+    top: 76px;
+  }
+
+  .walk-trigger--floating span::after {
+    content: " / DESKTOP";
+  }
+
+  .opening-copy {
+    top: 12vh;
+    width: auto;
+  }
+
+  .pavilion-rail button {
+    min-width: 128px;
+  }
+}
