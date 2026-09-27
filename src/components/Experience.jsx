@@ -147,7 +147,7 @@ function WalkController({ enabled }) {
     const movingForward = Number(keys.current.has('KeyW') || keys.current.has('ArrowUp')) - Number(keys.current.has('KeyS') || keys.current.has('ArrowDown'))
     const movingSide = Number(keys.current.has('KeyD') || keys.current.has('ArrowRight')) - Number(keys.current.has('KeyA') || keys.current.has('ArrowLeft'))
     const moving = movingForward !== 0 || movingSide !== 0
-    const speed = keys.current.has('ShiftLeft') || keys.current.has('ShiftRight') ? 4.25 : 2.55
+    const speed = keys.current.has('ShiftLeft') || keys.current.has('ShiftRight') ? 3.2 : 1.65
 
     camera.getWorldDirection(forward.current)
     forward.current.y = 0
@@ -480,6 +480,7 @@ function Scene({ activeId, quality, setQuality, onSelect, onSelectProduct, walkL
       <WalkController enabled={walkLocked} />
       <PointerLockControls
         selector=".walk-trigger"
+        pointerSpeed={0.72}
         onLock={() => setWalkLocked(true)}
         onUnlock={() => setWalkLocked(false)}
       />
