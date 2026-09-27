@@ -24,7 +24,7 @@ page.on('console', (message) => {
 page.on('pageerror', (error) => console.error('[pageerror]', error.message))
 
 await page.goto(baseUrl, { waitUntil: 'networkidle', timeout: 120_000 })
-await page.waitForTimeout(3500)
+await page.waitForTimeout(8500)
 
 const webgl = await page.evaluate(() => {
   const canvas = document.querySelector('canvas')
@@ -46,19 +46,21 @@ const shot = (path) =>
     timeout: 120_000,
   })
 
+await page.mouse.move(980, 310)
+await page.waitForTimeout(500)
 await shot('visual-home.png')
 
 await page.getByRole('button', { name: /Atlas Paper House/i }).last().click()
-await page.waitForTimeout(1800)
+await page.waitForTimeout(5500)
 await shot('visual-atlas.png')
 
 await page.getByRole('button', { name: /PackLab Supply/i }).last().click()
-await page.waitForTimeout(1800)
+await page.waitForTimeout(5500)
 await shot('visual-packlab.png')
 
 await page.setViewportSize({ width: 390, height: 844 })
 await page.goto(baseUrl, { waitUntil: 'networkidle', timeout: 120_000 })
-await page.waitForTimeout(2500)
+await page.waitForTimeout(6500)
 await shot('visual-mobile.png')
 
 await browser.close()
