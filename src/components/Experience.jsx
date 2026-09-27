@@ -242,6 +242,107 @@ function CeilingGrid() {
   )
 }
 
+function UtilityDetails() {
+  const seams = [-14, -10, -6, -2, 2, 6, 10, 14]
+  const scuffs = [
+    [-1.4, 13.1, 0.52, 0.18],
+    [1.8, 8.8, 0.36, 0.11],
+    [-0.7, 4.3, 0.72, 0.1],
+    [1.15, -1.8, 0.48, 0.12],
+    [-1.85, -7.4, 0.62, 0.09],
+    [0.8, -13.2, 0.42, 0.14],
+  ]
+
+  return (
+    <group>
+      {seams.map((z) => (
+        <mesh key={z} position={[0, 0.012, z]}>
+          <boxGeometry args={[16.0, 0.008, 0.018]} />
+          <meshStandardMaterial color="#686966" roughness={1} />
+        </mesh>
+      ))}
+
+      {scuffs.map(([x, z, radius, opacity], index) => (
+        <mesh key={index} position={[x, 0.018, z]} rotation={[-Math.PI / 2, 0, index * 0.47]}>
+          <circleGeometry args={[radius, 36]} />
+          <meshBasicMaterial color="#4c4d49" transparent opacity={opacity} depthWrite={false} />
+        </mesh>
+      ))}
+
+      {[-3.55, 3.55].map((x) => (
+        <group key={x}>
+          <mesh position={[x, 4.93, 0]} castShadow>
+            <boxGeometry args={[0.42, 0.11, 34.2]} />
+            <meshStandardMaterial color="#757974" roughness={0.58} metalness={0.38} />
+          </mesh>
+          {[-12, -4, 4, 12].map((z) => (
+            <mesh key={z} position={[x, 4.82, z]}>
+              <boxGeometry args={[0.52, 0.13, 0.06]} />
+              <meshStandardMaterial color="#535753" roughness={0.68} metalness={0.24} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+
+      {[-11.5, -1.5, 8.5].map((z, index) => (
+        <group key={z} position={[-7.91, 0.48, z]}>
+          <mesh>
+            <boxGeometry args={[0.07, 0.18, 0.28]} />
+            <meshStandardMaterial color="#d1d0c9" roughness={0.8} />
+          </mesh>
+          <mesh position={[0.039, 0, -0.055]}>
+            <boxGeometry args={[0.008, 0.035, 0.024]} />
+            <meshBasicMaterial color="#3e403d" />
+          </mesh>
+          <mesh position={[0.039, 0, 0.055]}>
+            <boxGeometry args={[0.008, 0.035, 0.024]} />
+            <meshBasicMaterial color="#3e403d" />
+          </mesh>
+          {index === 2 && (
+            <mesh position={[0.045, 0.21, 0]}>
+              <boxGeometry args={[0.015, 0.06, 0.18]} />
+              <meshBasicMaterial color="#8a8679" />
+            </mesh>
+          )}
+        </group>
+      ))}
+
+      <group position={[7.84, 1.15, 12.8]} rotation={[0, -Math.PI / 2, 0]}>
+        <mesh castShadow>
+          <boxGeometry args={[0.72, 1.05, 0.14]} />
+          <meshStandardMaterial color="#a2302c" roughness={0.66} metalness={0.12} />
+        </mesh>
+        <mesh position={[0, 0, 0.076]}>
+          <boxGeometry args={[0.5, 0.78, 0.01]} />
+          <meshPhysicalMaterial color="#392b28" transmission={0.28} roughness={0.22} thickness={0.02} />
+        </mesh>
+      </group>
+
+      <group position={[7.75, 0.58, 11.45]}>
+        <mesh castShadow>
+          <cylinderGeometry args={[0.12, 0.15, 0.82, 24]} />
+          <meshStandardMaterial color="#b83a31" roughness={0.6} />
+        </mesh>
+        <mesh position={[0, 0.47, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.025, 0.025, 0.32, 12]} />
+          <meshStandardMaterial color="#2f3130" roughness={0.5} metalness={0.4} />
+        </mesh>
+      </group>
+
+      <group position={[-7.84, 2.35, 13.6]}>
+        <mesh castShadow>
+          <boxGeometry args={[0.13, 0.82, 0.62]} />
+          <meshStandardMaterial color="#b7b7b1" roughness={0.62} metalness={0.24} />
+        </mesh>
+        <mesh position={[0.071, 0.12, 0]}>
+          <boxGeometry args={[0.012, 0.22, 0.35]} />
+          <meshBasicMaterial color="#50524f" />
+        </mesh>
+      </group>
+    </group>
+  )
+}
+
 function HallArchitecture({ textures }) {
   const columns = [-13, -9, -5, -1, 3, 7, 11, 15]
   return (
@@ -295,6 +396,7 @@ function HallArchitecture({ textures }) {
       </mesh>
 
       <CeilingGrid />
+      <UtilityDetails />
 
       <group position={[0, 2.1, -17.58]}>
         <mesh>
