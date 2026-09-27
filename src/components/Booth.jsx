@@ -174,6 +174,24 @@ function AtlasDisplay({ booth, onSelectProduct }) {
                 clearcoat={0.08}
               />
               <Edges color={index === 3 ? '#fff2d8' : '#cdbfa8'} threshold={18} />
+              <group position={[0, 0, 0.023]}>
+                <mesh position={[0, 0.31, 0]}>
+                  <planeGeometry args={[0.42, 0.035]} />
+                  <meshBasicMaterial color={index === 3 ? '#24180f' : booth.accent} toneMapped={false} />
+                </mesh>
+                <mesh position={[-0.13, -0.26, 0]}>
+                  <planeGeometry args={[0.14, 0.14]} />
+                  <meshBasicMaterial color={index % 2 ? '#27221d' : booth.secondary} toneMapped={false} />
+                </mesh>
+                <mesh position={[0.11, -0.22, 0]}>
+                  <planeGeometry args={[0.21, 0.025]} />
+                  <meshBasicMaterial color="#8f8172" />
+                </mesh>
+                <mesh position={[0.11, -0.28, 0]}>
+                  <planeGeometry args={[0.21, 0.018]} />
+                  <meshBasicMaterial color="#b5a898" />
+                </mesh>
+              </group>
             </RoundedBox>
           )
         })}
@@ -259,6 +277,22 @@ function PackLabDisplay({ booth, onSelectProduct }) {
             >
               <meshStandardMaterial color={index === 2 ? '#6e563b' : '#866847'} roughness={0.86} />
               <Edges color="#b8996b" threshold={18} />
+              <group position={[0, 0, 0.345]}>
+                <mesh position={[0, 0.07, 0]}>
+                  <planeGeometry args={[w * 0.54, Math.min(0.15, h * 0.22)]} />
+                  <meshBasicMaterial color={index === 2 ? booth.accent : '#e6d3a9'} toneMapped={false} />
+                </mesh>
+                <mesh position={[0, -0.08, 0.002]}>
+                  <planeGeometry args={[w * 0.38, 0.025]} />
+                  <meshBasicMaterial color="#2c251d" />
+                </mesh>
+                {[-0.08, -0.04, 0, 0.04, 0.08].map((offset) => (
+                  <mesh key={offset} position={[offset, -0.15, 0.003]}>
+                    <planeGeometry args={[0.012, 0.065]} />
+                    <meshBasicMaterial color="#3b3025" />
+                  </mesh>
+                ))}
+              </group>
             </RoundedBox>
           ),
         )}
