@@ -3,59 +3,61 @@ import { booths } from '../data/booths.js'
 export default function Hud({
   activeBooth,
   selectedProduct,
+  walking,
   onSelectBooth,
   onSelectProduct,
   onReset,
 }) {
   return (
-    <div className="hud">
+    <div className={walking ? 'hud is-walking' : 'hud'}>
       <header className="masthead">
         <button className="wordmark" type="button" onClick={onReset}>
           <span className="wordmark__seal">PB</span>
           <span>
             <strong>PAPER BAZAAR</strong>
-            <small>DIGITAL MATERIAL FAIR / 02</small>
+            <small>DIGITAL TWIN / MATERIAL HALL</small>
           </span>
         </button>
 
         <div className="masthead__meta">
-          <span>TEHRAN / B2B MATERIALS</span>
+          <span>1:1 HUMAN SCALE</span>
           <i />
-          <span>2 CURATED PAVILIONS</span>
+          <span>4 TRADE-FAIR BOOTHS</span>
+          <i />
+          <span>WALKABLE HALL</span>
         </div>
 
         <div className="status">
           <span className="status__dot" />
-          LIVE EXPERIENCE
+          REAL-TIME TWIN
         </div>
       </header>
 
-      {!activeBooth && (
+      {!walking && !activeBooth && (
         <section className="opening-copy">
-          <div className="opening-copy__eyebrow">MATERIAL COMMERCE, REIMAGINED</div>
+          <div className="opening-copy__eyebrow">SCANNED-SPACE STUDY / REAL SCALE</div>
           <h1>
-            کاغذ را
-            <span> فقط نبین.</span>
+            وارد سالن شو.
             <br />
-            داخلش قدم بزن.
+            <span>مثل یک فضای واقعی.</span>
           </h1>
           <p>
-            یک نمایشگاه دیجیتال فشرده برای خرید حرفه‌ای کاغذ؛
-            دو غرفه، دو زبان بصری و یک تجربه‌ی سه‌بعدی که برای ارائه ساخته شده.
+            چهار غرفه در یک سالن با راهروی مرکزی، مقیاس انسانی و حرکت اول‌شخص.
+            سطوح عمداً کاملاً تمیز و CG نیستند تا حس یک محیط برداشت‌شده و دیجیتال‌تویین حفظ شود.
           </p>
           <div className="opening-copy__actions">
-            <button type="button" onClick={() => onSelectBooth('atlas')}>
-              شروع تور
+            <button className="walk-trigger" type="button">
+              شروع قدم‌زدن
               <b>↗</b>
             </button>
-            <span>Drag the scene · choose a pavilion · inspect material</span>
+            <span>WASD حرکت · Mouse نگاه · Shift سریع‌تر · Esc خروج</span>
           </div>
         </section>
       )}
 
-      {activeBooth && (
+      {!walking && activeBooth && (
         <aside className="booth-story" style={{ '--accent': activeBooth.accent }}>
-          <div className="booth-story__index">PAVILION {activeBooth.number}</div>
+          <div className="booth-story__index">BOOTH {activeBooth.number}</div>
           <h2>{activeBooth.name}</h2>
           <p>{activeBooth.short}</p>
 
@@ -69,7 +71,7 @@ export default function Hud({
           </div>
 
           <div className="material-list">
-            <span className="material-list__label">SELECTED MATERIALS</span>
+            <span className="material-list__label">MATERIAL SAMPLES</span>
             {activeBooth.products.map((product, index) => (
               <button
                 key={product.id}
@@ -89,10 +91,10 @@ export default function Hud({
         </aside>
       )}
 
-      {selectedProduct && (
+      {!walking && selectedProduct && (
         <aside className="product-card" style={{ '--accent': activeBooth?.accent }}>
           <div className="product-card__topline">
-            <span>LIVE MATERIAL CARD</span>
+            <span>MATERIAL RECORD</span>
             <button type="button" onClick={() => onSelectProduct(null)}>×</button>
           </div>
           <h3>{selectedProduct.name}</h3>
@@ -108,35 +110,57 @@ export default function Hud({
         </aside>
       )}
 
-      <nav className="pavilion-rail" aria-label="Pavilion navigation">
-        <button
-          type="button"
-          className={!activeBooth ? 'is-active pavilion-rail__overview' : 'pavilion-rail__overview'}
-          onClick={onReset}
-        >
-          <span>00</span>
-          <strong>OVERVIEW</strong>
-        </button>
-
-        {booths.map((booth) => (
+      {!walking && (
+        <nav className="pavilion-rail" aria-label="Booth navigation">
           <button
-            key={booth.id}
             type="button"
-            className={activeBooth?.id === booth.id ? 'is-active' : ''}
-            style={{ '--accent': booth.accent }}
-            onClick={() => onSelectBooth(booth.id)}
+            className={!activeBooth ? 'is-active pavilion-rail__overview' : 'pavilion-rail__overview'}
+            onClick={onReset}
           >
-            <span>{booth.number}</span>
-            <strong>{booth.name}</strong>
-            <i />
+            <span>00</span>
+            <strong>HALL</strong>
           </button>
-        ))}
-      </nav>
 
-      <div className="corner-note">
-        <span>SCROLL / POINTER</span>
-        <span>REAL-TIME WEBGL</span>
-      </div>
+          {booths.map((booth) => (
+            <button
+              key={booth.id}
+              type="button"
+              className={activeBooth?.id === booth.id ? 'is-active' : ''}
+              style={{ '--accent': booth.accent }}
+              onClick={() => onSelectBooth(booth.id)}
+            >
+              <span>{booth.number}</span>
+              <strong>{booth.name}</strong>
+              <i />
+            </button>
+          ))}
+        </nav>
+      )}
+
+      {walking && (
+        <>
+          <div className="crosshair" aria-hidden="true"><i /></div>
+          <div className="walk-hint">
+            <strong>W A S D</strong>
+            <span>MOVE</span>
+            <em>SHIFT / FAST</em>
+            <em>ESC / RELEASE</em>
+          </div>
+          {activeBooth && (
+            <div className="walk-booth-label" style={{ '--accent': activeBooth.accent }}>
+              <span>BOOTH {activeBooth.number}</span>
+              <strong>{activeBooth.name}</strong>
+            </div>
+          )}
+        </>
+      )}
+
+      {!walking && (
+        <button className="walk-trigger walk-trigger--floating" type="button">
+          <span>WALK MODE</span>
+          <b>WASD</b>
+        </button>
+      )}
     </div>
   )
 }
