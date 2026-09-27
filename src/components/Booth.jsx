@@ -10,6 +10,135 @@ import {
 } from '@react-three/drei'
 import * as THREE from 'three'
 
+function GraphicPoster({ booth }) {
+  const texture = useMemo(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 1024
+    canvas.height = 768
+    const ctx = canvas.getContext('2d')
+    const atlas = booth.id === 'atlas'
+
+    const background = ctx.createLinearGradient(0, 0, 1024, 768)
+    if (atlas) {
+      background.addColorStop(0, '#120d09')
+      background.addColorStop(0.55, '#24170f')
+      background.addColorStop(1, '#080706')
+    } else {
+      background.addColorStop(0, '#041316')
+      background.addColorStop(0.55, '#06242a')
+      background.addColorStop(1, '#03090b')
+    }
+    ctx.fillStyle = background
+    ctx.fillRect(0, 0, 1024, 768)
+
+    ctx.strokeStyle = atlas ? 'rgba(255,197,117,.15)' : 'rgba(92,239,255,.14)'
+    ctx.lineWidth = 1
+    for (let x = 42; x < 1024; x += 64) {
+      ctx.beginPath()
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, 768)
+      ctx.stroke()
+    }
+    for (let y = 40; y < 768; y += 64) {
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(1024, y)
+      ctx.stroke()
+    }
+
+    const accent = atlas ? '#ffb86b' : '#62e6cf'
+    const pale = atlas ? '#f5e4c6' : '#c8f8f3'
+
+    ctx.globalAlpha = 0.95
+    if (atlas) {
+      ctx.strokeStyle = accent
+      ctx.lineWidth = 18
+      ctx.beginPath()
+      ctx.arc(770, 350, 155, Math.PI * 0.2, Math.PI * 1.76)
+      ctx.stroke()
+      ctx.strokeStyle = pale
+      ctx.lineWidth = 5
+      ctx.beginPath()
+      ctx.arc(770, 350, 205, Math.PI * 0.2, Math.PI * 1.76)
+      ctx.stroke()
+      ctx.fillStyle = accent
+      ctx.fillRect(662, 288, 210, 128)
+      ctx.fillStyle = '#17100b'
+      ctx.fillRect(690, 316, 154, 72)
+    } else {
+      ctx.strokeStyle = accent
+      ctx.lineWidth = 13
+      ;[92, 138, 184].forEach((radius, index) => {
+        ctx.globalAlpha = 0.9 - index * 0.22
+        ctx.beginPath()
+        ctx.arc(785, 350, radius, -Math.PI * 0.18, Math.PI * 1.52)
+        ctx.stroke()
+      })
+      ctx.globalAlpha = 1
+      for (let i = 0; i < 17; i += 1) {
+        ctx.fillStyle = i % 4 === 0 ? pale : accent
+        ctx.globalAlpha = i % 4 === 0 ? 0.8 : 0.34
+        ctx.fillRect(654 + i * 16, 525, i % 3 === 0 ? 8 : 4, 90)
+      }
+    }
+
+    ctx.globalAlpha = 1
+    ctx.fillStyle = pale
+    ctx.font = '700 34px Arial, sans-serif'
+    ctx.letterSpacing = '6px'
+    ctx.fillText(atlas ? 'ATLAS / PAPER HOUSE' : 'PACKLAB / SUPPLY', 64, 86)
+
+    ctx.fillStyle = accent
+    ctx.font = '700 136px Arial, sans-serif'
+    ctx.fillText(atlas ? '01' : '02', 58, 250)
+
+    ctx.fillStyle = 'rgba(255,255,255,.86)'
+    ctx.font = '600 28px Arial, sans-serif'
+    ctx.fillText(atlas ? 'FINE PAPER / MATERIAL ARCHIVE' : 'ROLL STOCK / CONVERTING SYSTEM', 64, 318)
+
+    ctx.fillStyle = 'rgba(255,255,255,.38)'
+    ctx.font = '500 16px Arial, sans-serif'
+    ctx.fillText('PAPER BAZAAR / DIGITAL MATERIAL FAIR', 64, 360)
+    ctx.fillText(atlas ? 'TACTILE — PRINT — SPECIFICATION' : 'KRAFT — CARTON — INDUSTRIAL', 64, 390)
+
+    ctx.strokeStyle = accent
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(64, 438)
+    ctx.lineTo(488, 438)
+    ctx.stroke()
+
+    ctx.fillStyle = 'rgba(255,255,255,.58)'
+    ctx.font = '500 14px Arial, sans-serif'
+    const lines = atlas
+      ? ['320 GSM / UNCOATED', '80 GSM / BOOK', '250 GSM / DIGITAL']
+      : ['125 GSM / KRAFT', '350 GSM / DUPLEX', '180 GSM / LINER']
+    lines.forEach((line, index) => ctx.fillText(line, 64, 486 + index * 44))
+
+    ctx.fillStyle = accent
+    ctx.font = '700 13px Arial, sans-serif'
+    ctx.fillText('MATERIAL INDEX / 2026', 64, 672)
+
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.colorSpace = THREE.SRGBColorSpace
+    texture.anisotropy = 4
+    texture.needsUpdate = true
+    return texture
+  }, [booth.id])
+
+  return (
+    <mesh position={[0, 2.02, -2.205]}>
+      <planeGeometry args={[5.28, 3.2]} />
+      <meshBasicMaterial
+        map={texture}
+        transparent
+        opacity={0.92}
+        toneMapped={false}
+      />
+    </mesh>
+  )
+}
+
 function GlowBar({ position, scale, color, intensity = 2.6 }) {
   return (
     <mesh position={position} scale={scale}>
@@ -342,7 +471,8 @@ export default function Booth({ booth, position, active, onSelect, onSelectProdu
         <meshStandardMaterial color={active ? '#151a20' : '#101318'} roughness={0.52} metalness={0.3} />
       </RoundedBox>
 
-      <GlassBackdrop tint={booth.id === 'atlas' ? '#6b5545' : '#245160'} />
+      <GraphicPoster booth={booth} />
+            <GlassBackdrop tint={booth.id === 'atlas' ? '#6b5545' : '#245160'} />
       <StructuralFrame accent={booth.accent} />
 
       <GlowBar position={[-2.86, 1.93, -1.86]} scale={[0.025, 1.15, 0.025]} color={booth.accent} intensity={active ? 4 : 1.4} />
