@@ -216,6 +216,7 @@ button:focus-visible {
 }
 
 .opening-copy__actions button {
+  pointer-events: auto;
   display: inline-flex;
   align-items: center;
   gap: 22px;
@@ -257,6 +258,7 @@ button:focus-visible {
 
 .booth-story {
   --accent: #fff;
+  pointer-events: auto;
   position: absolute;
   left: clamp(20px, 4vw, 62px);
   top: 18vh;
