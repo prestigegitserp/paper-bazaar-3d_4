@@ -113,3 +113,41 @@ Repos with clear permissive licenses were eligible as implementation references.
 Repos without a clear license were treated as visual research only.
 No third-party 3D models, textures or generated images have been copied into this repository.
 The current pavilion geometry and materials are authored in this project.
+
+
+## Digital-twin / scan research added for v3
+
+### pmndrs/drei Splat renderer — MIT project
+https://github.com/pmndrs/drei/blob/master/src/core/Splat.tsx
+
+Drei includes a streamed Gaussian Splat renderer. This is the preferred drop-in path when a real
+venue capture becomes available, because the surrounding React Three Fiber interaction layer can stay
+in place while the authored hall shell is replaced by captured radiance-field data.
+
+### Luma Web examples
+https://github.com/lumalabs/luma-web-examples
+
+Reviewed specifically for embedding captured splats inside React Three Fiber. This establishes the
+future migration path from the current authored "scan-like" hall to a literal capture-backed digital twin.
+
+### Gaussian splat streaming viewer — MIT
+https://github.com/tztechno/gaussian-splat-streaming-viewer
+
+Reviewed for the data organization pattern around segmented .splat assets and replacement with real
+capture data. No capture asset from this project is used here.
+
+### Poly Haven — CC0 material reference
+https://polyhaven.com/a/hangar_concrete_floor
+
+Reviewed the Hangar Concrete Floor material as a realism benchmark: worn, chipped, cracked and scuffed
+indoor concrete with diffuse/normal/roughness/displacement maps. Current production keeps a generated
+local texture so the scene has no runtime CDN dependency, but the material language is intentionally
+moving toward this physically imperfect reference.
+
+## v3 design rule
+
+A hand-authored scene must not be called a literal scan. The current version is a **scan-like digital twin
+prototype**: human scale, real hall circulation, first-person navigation, surface wear, utilities and subtle
+point residue. A literal digital twin requires an actual capture source (Gaussian Splat, photogrammetry mesh
+or point cloud). The code now isolates the hall shell so a capture can replace it later without rewriting
+the booth/product interaction layer.
