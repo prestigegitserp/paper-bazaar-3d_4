@@ -12,7 +12,7 @@ const browser = await chromium.launch({
 })
 
 const page = await browser.newPage({
-  viewport: { width: 1280, height: 720 },
+  viewport: { width: 1120, height: 630 },
   deviceScaleFactor: 1,
 })
 
