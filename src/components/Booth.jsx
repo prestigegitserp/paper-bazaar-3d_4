@@ -79,7 +79,24 @@ function Extrusion({ position, scale, color = '#6f716e' }) {
   )
 }
 
-function BoothShell({ booth, active }) {
+function BoothShell({ booth, active, wallTextures }) {
+  const boothWall = useMemo(() => {
+    const clone = (texture) => {
+      if (!texture) return null
+      const next = texture.clone()
+      next.wrapS = next.wrapT = THREE.RepeatWrapping
+      next.repeat.set(3.7, 2.65)
+      next.anisotropy = 4
+      next.needsUpdate = true
+      return next
+    }
+    return {
+      map: clone(wallTextures?.map),
+      normalMap: clone(wallTextures?.normalMap),
+      roughnessMap: clone(wallTextures?.roughnessMap),
+    }
+  }, [wallTextures])
+
   return (
     <group>
       <mesh position={[0, 0.025, 0]} receiveShadow>
@@ -89,13 +106,27 @@ function BoothShell({ booth, active }) {
 
       <mesh position={[0, 2.05, -2.4]} receiveShadow castShadow>
         <boxGeometry args={[5.85, 4.1, 0.14]} />
-        <meshStandardMaterial color="#e4e1d9" roughness={0.82} />
+        <meshStandardMaterial
+          map={boothWall.map}
+          normalMap={boothWall.normalMap}
+          normalScale={[0.24, 0.24]}
+          roughnessMap={boothWall.roughnessMap}
+          color="#f0ece2"
+          roughness={0.9}
+        />
       </mesh>
 
       {[-2.82, 2.82].map((x) => (
         <mesh key={x} position={[x, 1.95, -1.15]} castShadow>
           <boxGeometry args={[0.11, 3.9, 2.5]} />
-          <meshStandardMaterial color="#dad7cf" roughness={0.86} />
+          <meshStandardMaterial
+            map={boothWall.map}
+            normalMap={boothWall.normalMap}
+            normalScale={[0.2, 0.2]}
+            roughnessMap={boothWall.roughnessMap}
+            color="#e8e4da"
+            roughness={0.91}
+          />
         </mesh>
       ))}
 
@@ -382,7 +413,7 @@ function BoothInterior({ booth, onSelectProduct }) {
   return <CirculaInterior booth={booth} onSelectProduct={onSelectProduct} />
 }
 
-export default function Booth({ booth, position, rotation, active, onSelect, onSelectProduct }) {
+export default function Booth({ booth, position, rotation, active, onSelect, onSelectProduct, wallTextures }) {
   const [hovered, setHovered] = useState(false)
   useCursor(hovered)
 
@@ -400,7 +431,7 @@ export default function Booth({ booth, position, rotation, active, onSelect, onS
       }}
       onPointerOut={() => setHovered(false)}
     >
-      <BoothShell booth={booth} active={active} />
+      <BoothShell booth={booth} active={active} wallTextures={wallTextures} />
       <BoothInterior booth={booth} onSelectProduct={onSelectProduct} />
 
       {active && (
