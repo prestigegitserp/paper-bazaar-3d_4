@@ -37,6 +37,7 @@ const webgl = await page.evaluate(() => {
   }
 })
 console.log('visual-runtime', JSON.stringify(webgl))
+if (!webgl.canvas || !webgl.webgl) throw new Error('WebGL canvas failed to initialize')
 
 const shot = (path) =>
   page.screenshot({
@@ -50,13 +51,38 @@ await page.mouse.move(980, 310)
 await page.waitForTimeout(500)
 await shot('visual-home.png')
 
-await page.getByRole('button', { name: /Atlas Paper House/i }).last().click()
-await page.waitForTimeout(5500)
-await shot('visual-atlas.png')
+for (const [name, file] of [
+  ['Atlas Paper House', 'visual-atlas.png'],
+  ['PackLab Supply', 'visual-packlab.png'],
+  ['Chroma Mill', 'visual-chroma.png'],
+  ['Circula Fiber', 'visual-circula.png'],
+]) {
+  await page.getByRole('button', { name: new RegExp(name, 'i') }).last().click()
+  await page.waitForTimeout(3000)
+  await shot(file)
+}
 
-await page.getByRole('button', { name: /PackLab Supply/i }).last().click()
-await page.waitForTimeout(5500)
-await shot('visual-packlab.png')
+await page.getByRole('button', { name: /HALL/i }).last().click()
+await page.waitForTimeout(1000)
+
+const walkButton = page.locator('.walk-trigger').first()
+await walkButton.click()
+await page.waitForTimeout(1200)
+
+const pointerLocked = await page.evaluate(() => Boolean(document.pointerLockElement))
+console.log('pointer-lock', pointerLocked)
+
+if (pointerLocked) {
+  await page.keyboard.down('w')
+  await page.waitForTimeout(2200)
+  await page.keyboard.up('w')
+  await page.mouse.move(760, 340)
+  await page.waitForTimeout(500)
+  await shot('visual-walk.png')
+  await page.keyboard.press('Escape')
+} else {
+  console.warn('Pointer lock not available in this headless runtime; desktop browsers will still use the same control path.')
+}
 
 await page.setViewportSize({ width: 390, height: 844 })
 await page.goto(baseUrl, { waitUntil: 'networkidle', timeout: 120_000 })
