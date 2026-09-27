@@ -1,456 +1,395 @@
-import { useMemo, useRef, useState } from 'react'
-import { useFrame } from '@react-three/fiber'
-import {
-  Edges,
-  Float,
-  MeshTransmissionMaterial,
-  RoundedBox,
-  Sparkles,
-  useCursor,
-} from '@react-three/drei'
+import { useMemo, useState } from 'react'
+import { Edges, RoundedBox, useCursor } from '@react-three/drei'
 import * as THREE from 'three'
 
-function GraphicPoster({ booth }) {
-  const texture = useMemo(() => {
-    const canvas = document.createElement('canvas')
-    canvas.width = 1024
-    canvas.height = 768
-    const ctx = canvas.getContext('2d')
-    const atlas = booth.id === 'atlas'
+function makeBoothTexture(booth) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 1024
+  canvas.height = 512
+  const ctx = canvas.getContext('2d')
 
-    const background = ctx.createLinearGradient(0, 0, 1024, 768)
-    if (atlas) {
-      background.addColorStop(0, '#120d09')
-      background.addColorStop(0.55, '#24170f')
-      background.addColorStop(1, '#080706')
-    } else {
-      background.addColorStop(0, '#041316')
-      background.addColorStop(0.55, '#06242a')
-      background.addColorStop(1, '#03090b')
-    }
-    ctx.fillStyle = background
-    ctx.fillRect(0, 0, 1024, 768)
+  ctx.fillStyle = '#ece9e1'
+  ctx.fillRect(0, 0, 1024, 512)
 
-    ctx.strokeStyle = atlas ? 'rgba(255,197,117,.15)' : 'rgba(92,239,255,.14)'
-    ctx.lineWidth = 1
-    for (let x = 42; x < 1024; x += 64) {
-      ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, 768)
-      ctx.stroke()
-    }
-    for (let y = 40; y < 768; y += 64) {
-      ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(1024, y)
-      ctx.stroke()
-    }
+  const gradient = ctx.createLinearGradient(0, 0, 1024, 512)
+  gradient.addColorStop(0, booth.accent)
+  gradient.addColorStop(1, booth.secondary)
+  ctx.globalAlpha = 0.92
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, 330, 512)
+  ctx.globalAlpha = 1
 
-    const accent = atlas ? '#ffb86b' : '#62e6cf'
-    const pale = atlas ? '#f5e4c6' : '#c8f8f3'
+  ctx.fillStyle = '#1b1d1c'
+  ctx.font = '700 62px Arial, sans-serif'
+  ctx.fillText(booth.number, 52, 105)
 
-    ctx.globalAlpha = 0.95
-    if (atlas) {
-      ctx.strokeStyle = accent
-      ctx.lineWidth = 18
-      ctx.beginPath()
-      ctx.arc(770, 350, 155, Math.PI * 0.2, Math.PI * 1.76)
-      ctx.stroke()
-      ctx.strokeStyle = pale
-      ctx.lineWidth = 5
-      ctx.beginPath()
-      ctx.arc(770, 350, 205, Math.PI * 0.2, Math.PI * 1.76)
-      ctx.stroke()
-      ctx.fillStyle = accent
-      ctx.fillRect(662, 288, 210, 128)
-      ctx.fillStyle = '#17100b'
-      ctx.fillRect(690, 316, 154, 72)
-    } else {
-      ctx.strokeStyle = accent
-      ctx.lineWidth = 13
-      ;[92, 138, 184].forEach((radius, index) => {
-        ctx.globalAlpha = 0.9 - index * 0.22
-        ctx.beginPath()
-        ctx.arc(785, 350, radius, -Math.PI * 0.18, Math.PI * 1.52)
-        ctx.stroke()
-      })
-      ctx.globalAlpha = 1
-      for (let i = 0; i < 17; i += 1) {
-        ctx.fillStyle = i % 4 === 0 ? pale : accent
-        ctx.globalAlpha = i % 4 === 0 ? 0.8 : 0.34
-        ctx.fillRect(654 + i * 16, 525, i % 3 === 0 ? 8 : 4, 90)
-      }
-    }
+  ctx.fillStyle = '#f7f3eb'
+  ctx.font = '700 25px Arial, sans-serif'
+  ctx.fillText('PAPER BAZAAR', 52, 445)
 
-    ctx.globalAlpha = 1
-    ctx.fillStyle = pale
-    ctx.font = '700 34px Arial, sans-serif'
-    ctx.letterSpacing = '6px'
-    ctx.fillText(atlas ? 'ATLAS / PAPER HOUSE' : 'PACKLAB / SUPPLY', 64, 86)
+  ctx.fillStyle = '#222523'
+  ctx.font = '700 42px Arial, sans-serif'
+  ctx.fillText(booth.name.toUpperCase(), 382, 102)
 
-    ctx.fillStyle = accent
-    ctx.font = '700 136px Arial, sans-serif'
-    ctx.fillText(atlas ? '01' : '02', 58, 250)
+  ctx.fillStyle = '#666b66'
+  ctx.font = '500 19px Arial, sans-serif'
+  ctx.fillText(booth.kicker.toUpperCase(), 384, 142)
 
-    ctx.fillStyle = 'rgba(255,255,255,.86)'
-    ctx.font = '600 28px Arial, sans-serif'
-    ctx.fillText(atlas ? 'FINE PAPER / MATERIAL ARCHIVE' : 'ROLL STOCK / CONVERTING SYSTEM', 64, 318)
+  ctx.strokeStyle = '#a8aaa5'
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(384, 176)
+  ctx.lineTo(940, 176)
+  ctx.stroke()
 
-    ctx.fillStyle = 'rgba(255,255,255,.38)'
-    ctx.font = '500 16px Arial, sans-serif'
-    ctx.fillText('PAPER BAZAAR / DIGITAL MATERIAL FAIR', 64, 360)
-    ctx.fillText(atlas ? 'TACTILE — PRINT — SPECIFICATION' : 'KRAFT — CARTON — INDUSTRIAL', 64, 390)
-
-    ctx.strokeStyle = accent
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    ctx.moveTo(64, 438)
-    ctx.lineTo(488, 438)
-    ctx.stroke()
-
-    ctx.fillStyle = 'rgba(255,255,255,.58)'
-    ctx.font = '500 14px Arial, sans-serif'
-    const lines = atlas
-      ? ['320 GSM / UNCOATED', '80 GSM / BOOK', '250 GSM / DIGITAL']
-      : ['125 GSM / KRAFT', '350 GSM / DUPLEX', '180 GSM / LINER']
-    lines.forEach((line, index) => ctx.fillText(line, 64, 486 + index * 44))
-
-    ctx.fillStyle = accent
-    ctx.font = '700 13px Arial, sans-serif'
-    ctx.fillText('MATERIAL INDEX / 2026', 64, 672)
-
-    const texture = new THREE.CanvasTexture(canvas)
-    texture.colorSpace = THREE.SRGBColorSpace
-    texture.anisotropy = 4
-    texture.needsUpdate = true
-    return texture
-  }, [booth.id])
-
-  return (
-    <mesh position={[0, 2.02, -2.205]}>
-      <planeGeometry args={[5.28, 3.2]} />
-      <meshBasicMaterial
-        map={texture}
-        transparent
-        opacity={0.92}
-        toneMapped={false}
-      />
-    </mesh>
-  )
-}
-
-function GlowBar({ position, scale, color, intensity = 2.6 }) {
-  return (
-    <mesh position={position} scale={scale}>
-      <boxGeometry />
-      <meshStandardMaterial
-        color={color}
-        emissive={color}
-        emissiveIntensity={intensity}
-        toneMapped={false}
-      />
-    </mesh>
-  )
-}
-
-function PaperRibbon({ color, position, mirrored = false, phase = 0 }) {
-  const ref = useRef()
-
-  const geometry = useMemo(() => {
-    const direction = mirrored ? -1 : 1
-    const curve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(-1.55 * direction, -0.25, 0),
-      new THREE.Vector3(-0.95 * direction, 0.65, 0.25),
-      new THREE.Vector3(-0.15 * direction, 0.05, -0.25),
-      new THREE.Vector3(0.7 * direction, 0.92, 0.14),
-      new THREE.Vector3(1.55 * direction, 0.18, 0),
-    ])
-    return new THREE.TubeGeometry(curve, 96, 0.055, 10, false)
-  }, [mirrored])
-
-  useFrame(({ clock }, delta) => {
-    if (!ref.current) return
-    const time = clock.elapsedTime * 0.55 + phase
-    ref.current.rotation.z = THREE.MathUtils.damp(
-      ref.current.rotation.z,
-      Math.sin(time) * 0.035,
-      3,
-      delta,
-    )
-    ref.current.rotation.y = THREE.MathUtils.damp(
-      ref.current.rotation.y,
-      Math.cos(time * 0.7) * 0.05,
-      3,
-      delta,
-    )
+  booth.products.forEach((product, index) => {
+    const y = 236 + index * 70
+    ctx.fillStyle = '#343734'
+    ctx.font = '600 19px Arial, sans-serif'
+    ctx.fillText(`0${index + 1}`, 385, y)
+    ctx.font = '600 20px Arial, sans-serif'
+    ctx.fillText(product.name.toUpperCase(), 438, y)
+    ctx.fillStyle = '#868983'
+    ctx.font = '500 15px Arial, sans-serif'
+    ctx.fillText(product.meta.toUpperCase(), 438, y + 24)
   })
 
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.anisotropy = 4
+  return texture
+}
+
+function BoothSign({ booth }) {
+  const texture = useMemo(() => makeBoothTexture(booth), [booth])
   return (
-    <group ref={ref} position={position}>
-      <mesh geometry={geometry} castShadow>
-        <meshPhysicalMaterial
-          color={color}
-          roughness={0.22}
-          metalness={0.03}
-          clearcoat={0.75}
-          clearcoatRoughness={0.18}
-          emissive={color}
-          emissiveIntensity={0.035}
+    <mesh position={[0, 2.72, -2.28]}>
+      <planeGeometry args={[5.15, 2.58]} />
+      <meshStandardMaterial map={texture} roughness={0.72} />
+    </mesh>
+  )
+}
+
+function Extrusion({ position, scale, color = '#6f716e' }) {
+  return (
+    <mesh position={position} scale={scale} castShadow>
+      <boxGeometry />
+      <meshStandardMaterial color={color} roughness={0.48} metalness={0.52} />
+    </mesh>
+  )
+}
+
+function BoothShell({ booth, active }) {
+  return (
+    <group>
+      <mesh position={[0, 0.025, 0]} receiveShadow>
+        <boxGeometry args={[5.9, 0.045, 5]} />
+        <meshStandardMaterial color="#c7c4bc" roughness={0.88} />
+      </mesh>
+
+      <mesh position={[0, 2.05, -2.4]} receiveShadow castShadow>
+        <boxGeometry args={[5.85, 4.1, 0.14]} />
+        <meshStandardMaterial color="#e4e1d9" roughness={0.82} />
+      </mesh>
+
+      {[-2.82, 2.82].map((x) => (
+        <mesh key={x} position={[x, 1.95, -1.15]} castShadow>
+          <boxGeometry args={[0.11, 3.9, 2.5]} />
+          <meshStandardMaterial color="#dad7cf" roughness={0.86} />
+        </mesh>
+      ))}
+
+      {[-2.86, 2.86].map((x) => (
+        <Extrusion key={x} position={[x, 2.06, -0.02]} scale={[0.055, 2.08, 2.45]} />
+      ))}
+      <Extrusion position={[0, 4.11, -0.02]} scale={[2.86, 0.055, 2.45]} />
+      <Extrusion position={[0, 0.12, -2.32]} scale={[2.82, 0.045, 0.04]} />
+
+      <BoothSign booth={booth} />
+
+      <mesh position={[0, 3.95, 0.05]}>
+        <boxGeometry args={[3.2, 0.055, 0.055]} />
+        <meshStandardMaterial
+          color={booth.accent}
+          emissive={booth.accent}
+          emissiveIntensity={active ? 1.1 : 0.38}
+          toneMapped={false}
         />
+      </mesh>
+
+      {[-1.8, 0, 1.8].map((x) => (
+        <spotLight
+          key={x}
+          position={[x, 3.78, 0.55]}
+          target-position={[x, 1.2, -0.4]}
+          intensity={5}
+          distance={5.2}
+          angle={0.48}
+          penumbra={0.72}
+          color="#fff4dd"
+          castShadow={false}
+        />
+      ))}
+    </group>
+  )
+}
+
+function SampleCard({ booth, product, position, rotation = [0, 0, 0], accent = false, onSelectProduct }) {
+  return (
+    <RoundedBox
+      args={[0.74, 1.06, 0.035]}
+      radius={0.018}
+      smoothness={2}
+      position={position}
+      rotation={rotation}
+      castShadow
+      onClick={(event) => {
+        event.stopPropagation()
+        onSelectProduct(product.id)
+      }}
+    >
+      <meshStandardMaterial
+        color={accent ? booth.accent : '#eee9dd'}
+        roughness={0.88}
+      />
+      <Edges color={accent ? '#7c694e' : '#b8b1a4'} threshold={16} />
+      <group position={[0, 0, 0.021]}>
+        <mesh position={[0, 0.33, 0]}>
+          <planeGeometry args={[0.48, 0.055]} />
+          <meshBasicMaterial color={accent ? '#eee7db' : booth.accent} />
+        </mesh>
+        <mesh position={[-0.13, -0.25, 0]}>
+          <planeGeometry args={[0.14, 0.14]} />
+          <meshBasicMaterial color={booth.secondary} />
+        </mesh>
+        <mesh position={[0.11, -0.2, 0]}>
+          <planeGeometry args={[0.22, 0.024]} />
+          <meshBasicMaterial color="#8d887f" />
+        </mesh>
+        <mesh position={[0.11, -0.26, 0]}>
+          <planeGeometry args={[0.22, 0.018]} />
+          <meshBasicMaterial color="#b5b0a7" />
+        </mesh>
+      </group>
+    </RoundedBox>
+  )
+}
+
+function PaperStack({ position, color = '#e6e0d4', size = [0.95, 0.24, 0.72], layers = 7 }) {
+  return (
+    <group position={position}>
+      {Array.from({ length: layers }).map((_, index) => (
+        <mesh
+          key={index}
+          position={[(index % 2) * 0.012, index * 0.025, (index % 3) * 0.008]}
+          rotation={[0, (index - layers / 2) * 0.003, 0]}
+          castShadow
+        >
+          <boxGeometry args={[size[0], 0.021, size[2]]} />
+          <meshStandardMaterial color={index === layers - 1 ? color : '#ddd7ca'} roughness={0.94} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+function Roll({ booth, position, rotation = [Math.PI / 2, 0, 0], radius = 0.37, length = 0.74, onSelectProduct, product }) {
+  return (
+    <group
+      position={position}
+      rotation={rotation}
+      onClick={(event) => {
+        event.stopPropagation()
+        if (product) onSelectProduct(product.id)
+      }}
+    >
+      <mesh castShadow>
+        <cylinderGeometry args={[radius, radius, length, 40, 1, false]} />
+        <meshStandardMaterial color="#c9b18a" roughness={0.92} />
+      </mesh>
+      <mesh position={[0, length / 2 + 0.008, 0]}>
+        <cylinderGeometry args={[radius * 0.28, radius * 0.28, 0.018, 28]} />
+        <meshStandardMaterial color={booth.accent} roughness={0.7} />
+      </mesh>
+      <mesh position={[0, length / 2 + 0.019, 0]}>
+        <cylinderGeometry args={[radius * 0.09, radius * 0.09, 0.02, 24]} />
+        <meshStandardMaterial color="#3c3a35" roughness={0.82} />
       </mesh>
     </group>
   )
 }
 
-function GlassBackdrop({ tint }) {
-  return (
-    <RoundedBox
-      args={[5.72, 3.55, 0.12]}
-      radius={0.14}
-      smoothness={5}
-      position={[0, 2.02, -2.12]}
-      castShadow
-    >
-      <MeshTransmissionMaterial
-        samples={4}
-        resolution={256}
-        transmission={0.94}
-        roughness={0.18}
-        thickness={0.45}
-        ior={1.25}
-        chromaticAberration={0.018}
-        anisotropy={0.08}
-        distortion={0.04}
-        distortionScale={0.12}
-        temporalDistortion={0.02}
-        attenuationDistance={1.8}
-        attenuationColor={tint}
-        color={tint}
-      />
-      <Edges color={tint} threshold={12} />
-    </RoundedBox>
-  )
-}
-
-function StructuralFrame({ accent }) {
-  const columns = [-2.72, 2.72]
+function AtlasInterior({ booth, onSelectProduct }) {
   return (
     <group>
-      {columns.map((x) => (
-        <RoundedBox
-          key={x}
-          args={[0.12, 3.85, 0.18]}
-          radius={0.035}
-          smoothness={3}
-          position={[x, 1.95, -1.92]}
-          castShadow
-        >
-          <meshStandardMaterial color="#22272e" roughness={0.32} metalness={0.72} />
-        </RoundedBox>
+      <RoundedBox args={[3.65, 0.2, 1.25]} radius={0.045} smoothness={3} position={[0, 0.72, 0.65]} castShadow>
+        <meshStandardMaterial color="#aa8b66" roughness={0.68} />
+      </RoundedBox>
+      {[-1.45, 1.45].map((x) => (
+        <mesh key={x} position={[x, 0.36, 0.65]} castShadow>
+          <boxGeometry args={[0.12, 0.7, 0.96]} />
+          <meshStandardMaterial color="#6b6257" roughness={0.72} />
+        </mesh>
       ))}
-      <RoundedBox
-        args={[5.56, 0.12, 0.18]}
-        radius={0.035}
-        smoothness={3}
-        position={[0, 3.82, -1.92]}
-        castShadow
-      >
-        <meshStandardMaterial color="#22272e" roughness={0.32} metalness={0.72} />
-      </RoundedBox>
-      <GlowBar position={[0, 3.68, -1.78]} scale={[2.22, 0.025, 0.025]} color={accent} intensity={3.2} />
-    </group>
-  )
-}
 
-function AtlasDisplay({ booth, onSelectProduct }) {
-  const fan = [-2, -1, 0, 1, 2, 3, 4]
-
-  return (
-    <group>
-      <RoundedBox
-        args={[3.9, 0.26, 1.45]}
-        radius={0.09}
-        smoothness={4}
-        position={[0, 0.62, 0.22]}
-        castShadow
-        receiveShadow
-      >
-        <meshStandardMaterial color="#17191c" roughness={0.34} metalness={0.35} />
-      </RoundedBox>
-
-      <group position={[-0.2, 1.18, 0.08]} rotation={[-0.08, 0, 0]}>
-        {fan.map((slot, index) => {
-          const x = slot * 0.38
-          const rotation = (slot - 1) * 0.065
-          const product = booth.products[index % booth.products.length]
-          return (
-            <RoundedBox
-              key={slot}
-              args={[0.72, 1.18 + (index % 2) * 0.1, 0.035]}
-              radius={0.025}
-              smoothness={3}
-              position={[x, Math.abs(slot - 1) * 0.02, -Math.abs(slot - 1) * 0.055]}
-              rotation={[0, rotation, (slot - 1) * 0.028]}
-              castShadow
-              onClick={(event) => {
-                event.stopPropagation()
-                onSelectProduct(product.id)
-              }}
-            >
-              <meshPhysicalMaterial
-                color={index === 3 ? booth.accent : index % 2 ? '#efe7d7' : '#f7f0e6'}
-                roughness={0.62}
-                clearcoat={0.08}
-              />
-              <Edges color={index === 3 ? '#fff2d8' : '#cdbfa8'} threshold={18} />
-              <group position={[0, 0, 0.023]}>
-                <mesh position={[0, 0.31, 0]}>
-                  <planeGeometry args={[0.42, 0.035]} />
-                  <meshBasicMaterial color={index === 3 ? '#24180f' : booth.accent} toneMapped={false} />
-                </mesh>
-                <mesh position={[-0.13, -0.26, 0]}>
-                  <planeGeometry args={[0.14, 0.14]} />
-                  <meshBasicMaterial color={index % 2 ? '#27221d' : booth.secondary} toneMapped={false} />
-                </mesh>
-                <mesh position={[0.11, -0.22, 0]}>
-                  <planeGeometry args={[0.21, 0.025]} />
-                  <meshBasicMaterial color="#8f8172" />
-                </mesh>
-                <mesh position={[0.11, -0.28, 0]}>
-                  <planeGeometry args={[0.21, 0.018]} />
-                  <meshBasicMaterial color="#b5a898" />
-                </mesh>
-              </group>
-            </RoundedBox>
-          )
-        })}
-      </group>
-
-      <group position={[-1.55, 0.92, 1.02]}>
-        {[0, 1, 2, 3].map((i) => (
-          <mesh key={i} position={[0, i * 0.07, 0]} rotation={[0, i * 0.035, 0]} castShadow>
-            <boxGeometry args={[1.05, 0.055, 0.72]} />
-            <meshStandardMaterial color={i === 3 ? '#d0a76b' : '#e7dfd0'} roughness={0.78} />
-          </mesh>
+      <group position={[0, 1.37, 0.64]} rotation={[-0.1, 0, 0]}>
+        {[-1.18, -0.59, 0, 0.59, 1.18].map((x, index) => (
+          <SampleCard
+            key={x}
+            booth={booth}
+            product={booth.products[index % booth.products.length]}
+            position={[x, Math.abs(index - 2) * 0.025, -Math.abs(index - 2) * 0.04]}
+            rotation={[0, (index - 2) * 0.055, (index - 2) * 0.018]}
+            accent={index === 2}
+            onSelectProduct={onSelectProduct}
+          />
         ))}
       </group>
 
-      <Float speed={1.2} rotationIntensity={0.08} floatIntensity={0.16}>
-        <group position={[1.62, 2.0, 0.28]}>
-          <PaperRibbon color={booth.accent} position={[0, 0, 0]} phase={0.2} />
-          <PaperRibbon color="#f4e4c6" position={[0.08, -0.28, -0.22]} mirrored phase={1.1} />
-        </group>
-      </Float>
+      <PaperStack position={[-1.9, 0.82, -0.55]} color="#d6b678" />
+      <PaperStack position={[1.8, 0.82, -0.65]} color="#d9d4c9" size={[1.05, 0.22, 0.72]} layers={6} />
+
+      {[-1.95, -0.98, 0, 0.98, 1.95].map((x, index) => (
+        <mesh key={x} position={[x, 1.6, -2.14]} castShadow>
+          <boxGeometry args={[0.04, 1.0 + (index % 2) * 0.18, 0.05]} />
+          <meshStandardMaterial color={index % 2 ? booth.secondary : booth.accent} roughness={0.82} />
+        </mesh>
+      ))}
     </group>
   )
 }
 
-function PackLabDisplay({ booth, onSelectProduct }) {
+function PackLabInterior({ booth, onSelectProduct }) {
   return (
     <group>
-      <RoundedBox
-        args={[4.15, 0.24, 1.52]}
-        radius={0.08}
-        smoothness={4}
-        position={[0, 0.59, 0.18]}
-        castShadow
-        receiveShadow
-      >
-        <meshStandardMaterial color="#11161a" roughness={0.28} metalness={0.48} />
-      </RoundedBox>
+      <group position={[0, 1.25, -0.65]}>
+        <Extrusion position={[-2.1, 0, 0]} scale={[0.055, 1.25, 0.72]} color="#555b59" />
+        <Extrusion position={[2.1, 0, 0]} scale={[0.055, 1.25, 0.72]} color="#555b59" />
+        <Extrusion position={[0, -1.12, 0]} scale={[2.14, 0.055, 0.72]} color="#555b59" />
+        <Extrusion position={[0, 1.12, 0]} scale={[2.14, 0.055, 0.72]} color="#555b59" />
+        {[-1.32, 0, 1.32].map((x, index) => (
+          <Roll
+            key={x}
+            booth={booth}
+            position={[x, 0.03 + (index % 2) * 0.06, 0.02]}
+            radius={0.42}
+            length={0.78}
+            product={booth.products[index]}
+            onSelectProduct={onSelectProduct}
+          />
+        ))}
+      </group>
 
-      <group position={[-0.32, 1.35, 0.1]}>
-        {[-1.35, -0.45, 0.45, 1.35].map((x, index) => {
-          const product = booth.products[index % booth.products.length]
+      <group position={[0, 0.55, 1.02]}>
+        {[
+          [-1.55, 0.8, 0.7],
+          [-0.55, 0.68, 0.92],
+          [0.5, 0.86, 0.62],
+          [1.52, 0.74, 0.76],
+        ].map(([x, w, h], index) => (
+          <RoundedBox key={x} args={[w, h, 0.72]} radius={0.02} smoothness={2} position={[x, h / 2, 0]} castShadow>
+            <meshStandardMaterial color={index === 2 ? '#8a6945' : '#9b7951'} roughness={0.96} />
+            <Edges color="#6d543a" threshold={14} />
+            <mesh position={[0, 0.02, 0.365]}>
+              <planeGeometry args={[w * 0.58, Math.min(0.16, h * 0.22)]} />
+              <meshBasicMaterial color={index === 2 ? booth.accent : '#d8c497'} />
+            </mesh>
+          </RoundedBox>
+        ))}
+      </group>
+    </group>
+  )
+}
+
+function ChromaInterior({ booth, onSelectProduct }) {
+  const palette = ['#7b302e', '#bc6d42', '#d0a44a', '#827f4d', '#3d6764', '#3f566d', '#685067', '#b7a38a']
+  return (
+    <group>
+      <group position={[0, 2.0, -2.13]}>
+        {palette.map((color, index) => {
+          const col = index % 4
+          const row = Math.floor(index / 4)
           return (
-            <group
-              key={x}
-              position={[x, index % 2 ? 0.06 : 0, 0]}
-              onClick={(event) => {
-                event.stopPropagation()
-                onSelectProduct(product.id)
-              }}
+            <mesh
+              key={color}
+              position={[(col - 1.5) * 0.82, 0.48 - row * 1.02, 0]}
+              rotation={[0, 0, (index - 3.5) * 0.003]}
+              castShadow
             >
-              <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-                <cylinderGeometry args={[0.39, 0.39, 0.72, 36, 1, false]} />
-                <meshStandardMaterial
-                  color={index === 1 ? booth.accent : index % 2 ? '#ad8657' : '#ccb487'}
-                  roughness={0.78}
-                />
-              </mesh>
-              <mesh position={[0, 0, 0.37]} rotation={[Math.PI / 2, 0, 0]}>
-                <cylinderGeometry args={[0.12, 0.12, 0.012, 24]} />
-                <meshStandardMaterial
-                  color={booth.secondary}
-                  emissive={booth.secondary}
-                  emissiveIntensity={index === 1 ? 0.85 : 0.16}
-                  toneMapped={false}
-                />
-              </mesh>
-            </group>
+              <boxGeometry args={[0.72, 0.9, 0.045]} />
+              <meshStandardMaterial color={color} roughness={0.92} />
+            </mesh>
           )
         })}
       </group>
 
-      <group position={[0.1, 0.98, 1.08]}>
-        {[[-1.42, 0.0, 0.84, 0.62], [-0.48, 0.0, 0.7, 0.84], [0.48, 0.0, 0.82, 0.54], [1.42, 0.0, 0.72, 0.72]].map(
-          ([x, z, w, h], index) => (
-            <RoundedBox
-              key={x}
-              args={[w, h, 0.68]}
-              radius={0.035}
-              smoothness={3}
-              position={[x, h / 2, z]}
-              rotation={[0, (index - 1.5) * 0.035, 0]}
-              castShadow
-            >
-              <meshStandardMaterial color={index === 2 ? '#6e563b' : '#866847'} roughness={0.86} />
-              <Edges color="#b8996b" threshold={18} />
-              <group position={[0, 0, 0.345]}>
-                <mesh position={[0, 0.07, 0]}>
-                  <planeGeometry args={[w * 0.54, Math.min(0.15, h * 0.22)]} />
-                  <meshBasicMaterial color={index === 2 ? booth.accent : '#e6d3a9'} toneMapped={false} />
-                </mesh>
-                <mesh position={[0, -0.08, 0.002]}>
-                  <planeGeometry args={[w * 0.38, 0.025]} />
-                  <meshBasicMaterial color="#2c251d" />
-                </mesh>
-                {[-0.08, -0.04, 0, 0.04, 0.08].map((offset) => (
-                  <mesh key={offset} position={[offset, -0.15, 0.003]}>
-                    <planeGeometry args={[0.012, 0.065]} />
-                    <meshBasicMaterial color="#3b3025" />
-                  </mesh>
-                ))}
-              </group>
-            </RoundedBox>
-          ),
-        )}
-      </group>
-
-      <Float speed={1.35} rotationIntensity={0.12} floatIntensity={0.2}>
-        <mesh position={[1.62, 2.42, 0.18]} rotation={[Math.PI / 2.5, 0.25, 0.2]} castShadow>
-          <torusGeometry args={[0.72, 0.085, 18, 72]} />
-          <meshPhysicalMaterial
-            color={booth.accent}
-            roughness={0.24}
-            metalness={0.14}
-            clearcoat={0.7}
-            emissive={booth.accent}
-            emissiveIntensity={0.12}
+      <RoundedBox args={[2.8, 0.18, 1.55]} radius={0.04} smoothness={3} position={[0, 0.72, 0.82]} castShadow>
+        <meshStandardMaterial color="#d8d4ca" roughness={0.88} />
+      </RoundedBox>
+      <group position={[0, 1.18, 0.82]}>
+        {[-0.78, 0, 0.78].map((x, index) => (
+          <SampleCard
+            key={x}
+            booth={booth}
+            product={booth.products[index]}
+            position={[x, 0, 0]}
+            rotation={[0, (index - 1) * 0.05, 0]}
+            accent={index === 1}
+            onSelectProduct={onSelectProduct}
           />
-        </mesh>
-      </Float>
+        ))}
+      </group>
     </group>
   )
 }
 
-export default function Booth({ booth, position, active, onSelect, onSelectProduct }) {
+function CirculaInterior({ booth, onSelectProduct }) {
+  return (
+    <group>
+      <PaperStack position={[-1.55, 0.28, -0.6]} color="#a4a28d" size={[1.4, 0.3, 1.1]} layers={11} />
+      <PaperStack position={[0.1, 0.28, -0.85]} color="#b3a17c" size={[1.25, 0.3, 0.95]} layers={9} />
+      <PaperStack position={[1.55, 0.28, -0.55]} color="#8e927e" size={[1.18, 0.3, 1.08]} layers={10} />
+
+      <group position={[0, 1.18, 0.86]}>
+        {[-1.25, 0, 1.25].map((x, index) => (
+          <Roll
+            key={x}
+            booth={booth}
+            position={[x, 0, 0]}
+            rotation={[Math.PI / 2, 0, index * 0.05]}
+            radius={0.34 + index * 0.03}
+            length={0.64}
+            product={booth.products[index]}
+            onSelectProduct={onSelectProduct}
+          />
+        ))}
+      </group>
+
+      {[-2.05, 2.05].map((x, index) => (
+        <mesh key={x} position={[x, 1.85, -1.75]} rotation={[0, 0, index ? -0.025 : 0.03]} castShadow>
+          <boxGeometry args={[0.82, 1.45, 0.08]} />
+          <meshStandardMaterial color={index ? '#8a856f' : '#a69b7f'} roughness={1} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+function BoothInterior({ booth, onSelectProduct }) {
+  if (booth.id === 'atlas') return <AtlasInterior booth={booth} onSelectProduct={onSelectProduct} />
+  if (booth.id === 'packlab') return <PackLabInterior booth={booth} onSelectProduct={onSelectProduct} />
+  if (booth.id === 'chroma') return <ChromaInterior booth={booth} onSelectProduct={onSelectProduct} />
+  return <CirculaInterior booth={booth} onSelectProduct={onSelectProduct} />
+}
+
+export default function Booth({ booth, position, rotation, active, onSelect, onSelectProduct }) {
   const [hovered, setHovered] = useState(false)
   useCursor(hovered)
 
   return (
     <group
       position={position}
+      rotation={rotation}
       onClick={(event) => {
         event.stopPropagation()
         onSelect(booth.id)
@@ -461,38 +400,15 @@ export default function Booth({ booth, position, active, onSelect, onSelectProdu
       }}
       onPointerOut={() => setHovered(false)}
     >
-      <RoundedBox
-        args={[6.35, 0.18, 5.0]}
-        radius={0.08}
-        smoothness={4}
-        position={[0, 0.05, 0]}
-        receiveShadow
-      >
-        <meshStandardMaterial color={active ? '#151a20' : '#101318'} roughness={0.52} metalness={0.3} />
-      </RoundedBox>
+      <BoothShell booth={booth} active={active} />
+      <BoothInterior booth={booth} onSelectProduct={onSelectProduct} />
 
-      <GraphicPoster booth={booth} />
-            <GlassBackdrop tint={booth.id === 'atlas' ? '#6b5545' : '#245160'} />
-      <StructuralFrame accent={booth.accent} />
-
-      <GlowBar position={[-2.86, 1.93, -1.86]} scale={[0.025, 1.15, 0.025]} color={booth.accent} intensity={active ? 4 : 1.4} />
-      <GlowBar position={[2.86, 1.93, -1.86]} scale={[0.025, 1.15, 0.025]} color={booth.secondary} intensity={active ? 3.4 : 1.2} />
-
-      {booth.id === 'atlas' ? (
-        <AtlasDisplay booth={booth} onSelectProduct={onSelectProduct} />
-      ) : (
-        <PackLabDisplay booth={booth} onSelectProduct={onSelectProduct} />
+      {active && (
+        <mesh position={[0, 0.035, 2.1]}>
+          <boxGeometry args={[2.2, 0.018, 0.045]} />
+          <meshStandardMaterial color={booth.accent} emissive={booth.accent} emissiveIntensity={0.7} toneMapped={false} />
+        </mesh>
       )}
-
-      <Sparkles
-        count={active ? 34 : 18}
-        scale={[5.7, 3.3, 3.6]}
-        position={[0, 1.9, 0]}
-        size={active ? 2.2 : 1.2}
-        speed={0.16}
-        opacity={active ? 0.34 : 0.14}
-        color={booth.accent}
-      />
     </group>
   )
 }
